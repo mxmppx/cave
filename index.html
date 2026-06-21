@@ -634,6 +634,19 @@
       font-weight: 600;
       border: 1.5px solid var(--border);
     }
+    .btn-delete-full {
+      width: 100%;
+      height: 42px;
+      margin-top: 10px;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--urgent);
+      font-size: 13px;
+      font-weight: 600;
+      border: 1.5px solid transparent;
+      transition: background 0.15s;
+    }
+    .btn-delete-full:hover { background: var(--surface2); }
 
     /* ── Stats page extras ───────────────────────── */
     .region-list { margin-top: 8px; }
@@ -1162,6 +1175,7 @@ function openDetail(id) {
       <button class="btn-consume" id="btnConsume">−1 bouteille</button>
       <button class="btn-edit" id="btnDetailEdit">Modifier</button>
     </div>
+    <button class="btn-delete-full" id="btnDetailDelete">🗑 Supprimer ce vin de la cave</button>
   `;
 
   document.getElementById('btnDetailEdit').addEventListener('click', () => {
@@ -1171,11 +1185,27 @@ function openDetail(id) {
   document.getElementById('btnConsume').addEventListener('click', async () => {
     if (w.quantite <= 0) return;
     const newQty = w.quantite - 1;
+
+    if (newQty === 0) {
+      await db.from('wines').delete().eq('id', id);
+      showToast('Dernière bouteille bue 🍷 — fiche supprimée');
+      closeModal('modalDetail');
+      await loadWines();
+      return;
+    }
+
     await db.from('wines').update({ quantite: newQty }).eq('id', id);
     w.quantite = newQty;
     showToast('Bouteille consommée 🍷');
     closeModal('modalDetail');
     renderCave();
+  });
+  document.getElementById('btnDetailDelete').addEventListener('click', async () => {
+    if (!confirm(`Supprimer "${w.nom}" de la cave ?`)) return;
+    await db.from('wines').delete().eq('id', id);
+    showToast('Vin supprimé');
+    closeModal('modalDetail');
+    await loadWines();
   });
 
   document.getElementById('modalDetail').classList.remove('hidden');
