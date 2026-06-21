@@ -1241,9 +1241,20 @@ document.getElementById('cepageFilterSelect').addEventListener('change', e => {
   renderCave();
 });
 
+// Découpe un champ cépage en cépages individuels (gère virgule, slash, "et", "&")
+function splitCepages(cepageStr) {
+  if (!cepageStr) return [];
+  return cepageStr
+    .split(/,|\/|&|\bet\b/i)
+    .map(c => c.trim())
+    .filter(Boolean);
+}
+
 function updateCepageFilterOptions() {
   const select = document.getElementById('cepageFilterSelect');
-  const cepages = [...new Set(wines.map(w => w.cepage).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const allCepages = new Set();
+  wines.forEach(w => splitCepages(w.cepage).forEach(c => allCepages.add(c)));
+  const cepages = [...allCepages].sort((a,b) => a.localeCompare(b));
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les cépages</option>` +
@@ -1263,7 +1274,7 @@ function renderCave() {
   const list = document.getElementById('wineList');
   let filtered = wines.filter(w => {
     const matchCouleur = filterCouleur === 'tous' || w.couleur === filterCouleur;
-    const matchCepage = cepageFilter === 'tous' || w.cepage === cepageFilter;
+    const matchCepage = cepageFilter === 'tous' || splitCepages(w.cepage).includes(cepageFilter);
     const q = filterSearch.toLowerCase();
     const matchSearch = !q || w.nom.toLowerCase().includes(q)
       || (w.domaine || '').toLowerCase().includes(q)
@@ -1346,7 +1357,9 @@ function renderStats() {
 
   const cepageCounts = {};
   wines.forEach(w => {
-    if (w.cepage) cepageCounts[w.cepage] = (cepageCounts[w.cepage] || 0) + (w.quantite || 0);
+    splitCepages(w.cepage).forEach(c => {
+      cepageCounts[c] = (cepageCounts[c] || 0) + (w.quantite || 0);
+    });
   });
   const cepages = Object.entries(cepageCounts).sort((a,b) => b[1]-a[1]).slice(0, 8);
 
