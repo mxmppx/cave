@@ -98,14 +98,16 @@
       gap: 6px;
       padding: 0 20px 20px;
     }
+    .nav.nav-4 { grid-template-columns: repeat(4, 1fr); }
     .nav-btn {
-      padding: 8px 0;
+      padding: 8px 4px;
       font-size: 13px;
       font-weight: 500;
       color: var(--text-muted);
       border-radius: var(--radius-sm);
       text-align: center;
       transition: all 0.15s;
+      white-space: nowrap;
     }
     .nav-btn.active {
       background: var(--surface);
@@ -711,10 +713,11 @@
   </div>
 
   <!-- Nav -->
-  <div class="nav">
+  <div class="nav nav-4">
     <button class="nav-btn active" data-tab="cave">Cave</button>
     <button class="nav-btn" data-tab="stats">Stats</button>
     <button class="nav-btn" data-tab="a-boire">À boire</button>
+    <button class="nav-btn" data-tab="historique">Historique</button>
   </div>
 
   <!-- ── TAB : CAVE ─────────────────────────────── -->
@@ -746,6 +749,13 @@
   <!-- ── TAB : À BOIRE ─────────────────────────── -->
   <div class="section hidden" id="tab-a-boire">
     <div class="wine-list" id="aBoireList">
+      <div class="loading">Chargement…</div>
+    </div>
+  </div>
+
+  <!-- ── TAB : HISTORIQUE ───────────────────────── -->
+  <div class="section hidden" id="tab-historique">
+    <div class="wine-list" id="historiqueList">
       <div class="loading">Chargement…</div>
     </div>
   </div>
@@ -856,6 +866,22 @@
   </div>
 </div>
 
+<!-- ── MODAL : ARCHIVER (note de dégustation) ──────── -->
+<div class="modal-overlay hidden" id="modalArchive">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Comment c'était ? 🍷</div>
+    <div class="form-group">
+      <label class="form-label">Note de dégustation (optionnel)</label>
+      <textarea class="form-textarea" id="archiveNote" placeholder="Très bon, à racheter ! Tanins encore un peu fermes…"></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn-cancel" id="btnArchiveCancel">Annuler</button>
+      <button class="btn-save" id="btnArchiveConfirm">Archiver</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── CONFIG — remplacez par vos clés Supabase ──────────
 const SUPABASE_URL = 'https://rtxwaupsjwfmczyopuhk.supabase.co';
@@ -899,11 +925,12 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    ['cave','stats','a-boire'].forEach(t => {
+    ['cave','stats','a-boire','historique'].forEach(t => {
       document.getElementById('tab-' + t).classList.toggle('hidden', t !== btn.dataset.tab);
     });
     if (btn.dataset.tab === 'stats') renderStats();
     if (btn.dataset.tab === 'a-boire') renderABoire();
+    if (btn.dataset.tab === 'historique') loadArchive();
   });
 });
 
@@ -1111,7 +1138,44 @@ function renderABoire() {
   });
 }
 
-// ── Filters ───────────────────────────────────────────
+// ── Historique / Archive ───────────────────────────────
+let archive = [];
+
+async function loadArchive() {
+  const list = document.getElementById('historiqueList');
+  list.innerHTML = `<div class="loading">Chargement…</div>`;
+  const { data, error } = await db.from('wines_archive').select('*').order('date_consommation', { ascending: false });
+  if (error) { console.error(error); list.innerHTML = `<div class="loading">Erreur de chargement</div>`; return; }
+  archive = data || [];
+  renderHistorique();
+}
+
+function renderHistorique() {
+  const list = document.getElementById('historiqueList');
+  if (!archive.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">📖</div><h3>Aucun vin bu pour l'instant</h3><p>Les vins consommés apparaîtront ici.</p></div>`;
+    return;
+  }
+  list.innerHTML = archive.map(w => {
+    const sub = [w.domaine, w.millesime, w.region].filter(Boolean).join(' · ');
+    const date = w.date_consommation
+      ? new Date(w.date_consommation).toLocaleDateString('fr-CH', { day: 'numeric', month: 'short', year: 'numeric' })
+      : '';
+    return `
+      <div class="wine-card archive-card" data-id="${w.id}">
+        ${photoOrEmoji(w)}
+        <div class="wine-info">
+          <div class="wine-name">${w.nom}</div>
+          <div class="wine-sub">${sub || '—'}</div>
+          ${w.note_degustation ? `<div class="wine-sub" style="font-style:italic;margin-top:2px">💬 ${w.note_degustation}</div>` : ''}
+        </div>
+        <div class="wine-right">
+          <div class="wine-sub" style="font-weight:600">${date}</div>
+          <div class="wine-qty">${w.quantite_bue} btl</div>
+        </div>
+      </div>`;
+  }).join('');
+}
 document.getElementById('colorFilters').addEventListener('click', e => {
   const chip = e.target.closest('.filter-chip');
   if (!chip) return;
@@ -1175,22 +1239,22 @@ function openDetail(id) {
       <button class="btn-consume" id="btnConsume">−1 bouteille</button>
       <button class="btn-edit" id="btnDetailEdit">Modifier</button>
     </div>
-    <button class="btn-delete-full" id="btnDetailDelete">🗑 Supprimer ce vin de la cave</button>
+    <button class="btn-delete-full" id="btnDetailDelete">🗑 Archiver tout le stock restant</button>
   `;
 
   document.getElementById('btnDetailEdit').addEventListener('click', () => {
     closeModal('modalDetail');
     openForm(id);
   });
+
+  // −1 bouteille : si c'est la dernière, on demande une note avant d'archiver
   document.getElementById('btnConsume').addEventListener('click', async () => {
     if (w.quantite <= 0) return;
     const newQty = w.quantite - 1;
 
     if (newQty === 0) {
-      await db.from('wines').delete().eq('id', id);
-      showToast('Dernière bouteille bue 🍷 — fiche supprimée');
       closeModal('modalDetail');
-      await loadWines();
+      openArchiveModal(w, 1);
       return;
     }
 
@@ -1200,16 +1264,65 @@ function openDetail(id) {
     closeModal('modalDetail');
     renderCave();
   });
-  document.getElementById('btnDetailDelete').addEventListener('click', async () => {
-    if (!confirm(`Supprimer "${w.nom}" de la cave ?`)) return;
-    await db.from('wines').delete().eq('id', id);
-    showToast('Vin supprimé');
+
+  // Archiver tout le stock restant
+  document.getElementById('btnDetailDelete').addEventListener('click', () => {
     closeModal('modalDetail');
-    await loadWines();
+    openArchiveModal(w, w.quantite);
   });
 
   document.getElementById('modalDetail').classList.remove('hidden');
 }
+
+// ── Archive modal (note de dégustation) ────────────────
+let archiveTarget = null; // { wine, quantiteBue }
+
+function openArchiveModal(wine, quantiteBue) {
+  archiveTarget = { wine, quantiteBue };
+  document.getElementById('archiveNote').value = '';
+  document.getElementById('modalArchive').classList.remove('hidden');
+}
+
+async function confirmArchive() {
+  if (!archiveTarget) return;
+  const { wine: w, quantiteBue } = archiveTarget;
+  const note = document.getElementById('archiveNote').value.trim() || null;
+
+  const btn = document.getElementById('btnArchiveConfirm');
+  btn.textContent = 'Archivage…';
+  btn.disabled = true;
+
+  await db.from('wines_archive').insert({
+    nom: w.nom,
+    domaine: w.domaine,
+    millesime: w.millesime,
+    region: w.region,
+    pays: w.pays,
+    couleur: w.couleur,
+    prix_achat: w.prix_achat,
+    quantite_bue: quantiteBue,
+    photo_url: w.photo_url,
+    notes: w.notes,
+    note_degustation: note,
+    created_at: w.created_at,
+  });
+
+  await db.from('wines').delete().eq('id', w.id);
+
+  btn.textContent = 'Archiver';
+  btn.disabled = false;
+
+  closeModal('modalArchive');
+  showToast('Vin archivé 📖');
+  archiveTarget = null;
+  await loadWines();
+}
+
+document.getElementById('btnArchiveConfirm').addEventListener('click', confirmArchive);
+document.getElementById('btnArchiveCancel').addEventListener('click', () => {
+  closeModal('modalArchive');
+  archiveTarget = null;
+});
 
 // ── Form modal ────────────────────────────────────────
 function openForm(id = null) {
@@ -1345,7 +1458,7 @@ document.getElementById('btnDelete').addEventListener('click', async () => {
 document.getElementById('btnFormCancel').addEventListener('click', () => closeModal('modalForm'));
 
 // Close on overlay click
-['modalForm','modalDetail'].forEach(id => {
+['modalForm','modalDetail','modalArchive'].forEach(id => {
   document.getElementById(id).addEventListener('click', e => {
     if (e.target === e.currentTarget) closeModal(id);
   });
@@ -1355,6 +1468,7 @@ function closeModal(id) {
   document.getElementById(id).classList.add('hidden');
   editingId = null;
   uploadedPhotoFile = null;
+  if (id === 'modalArchive') archiveTarget = null;
 }
 
 document.getElementById('btnAdd').addEventListener('click', () => openForm());
