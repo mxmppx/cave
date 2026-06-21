@@ -240,6 +240,27 @@
       gap: 10px;
       margin-bottom: 16px;
     }
+    .ai-import-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .btn-ai-action {
+      flex: 1;
+      min-width: 140px;
+      height: 38px;
+      padding: 0 12px;
+      border-radius: var(--radius-sm);
+      border: 1.5px dashed var(--gold);
+      background: transparent;
+      color: var(--gold);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .btn-ai-action:hover { background: var(--surface2); }
     .sort-row {
       display: flex;
       align-items: center;
@@ -825,6 +846,10 @@
       <input class="search-input" type="search" placeholder="Rechercher..." id="searchInput" />
       <button class="btn-add" id="btnAdd">+ Ajouter</button>
     </div>
+    <div class="ai-import-row">
+      <button class="btn-ai-action" id="btnCopyPrompt">📋 Copier le prompt IA</button>
+      <button class="btn-ai-action" id="btnImportAiResult">✨ Importer un vin (IA)</button>
+    </div>
     <div class="filters" id="colorFilters">
       <button class="filter-chip active" data-filter="tous">Tous</button>
       <button class="filter-chip" data-filter="rouge">🍷 Rouge</button>
@@ -1051,6 +1076,23 @@
       <button class="btn-save" id="btnDupMerge" style="flex:none;width:100%">Oui, fusionner les quantités</button>
       <button class="btn-cancel" id="btnDupSeparate" style="flex:none;width:100%">Non, créer une entrée séparée</button>
       <button class="btn-delete-full" id="btnDupCancel">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL : IMPORT RÉSULTAT IA ───────────────────── -->
+<div class="modal-overlay hidden" id="modalAiImport">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Importer un vin (IA) ✨</div>
+    <p class="dup-intro">Colle ici le texte renvoyé par l'IA après lui avoir donné le prompt et une photo de l'étiquette.</p>
+    <div class="form-group">
+      <textarea class="form-textarea" id="aiImportText" style="min-height:160px" placeholder="NOM: ...&#10;DOMAINE: ...&#10;MILLESIME: ...&#10;..."></textarea>
+    </div>
+    <div id="aiImportError" class="scan-status hidden" style="color:var(--urgent)"></div>
+    <div class="form-actions">
+      <button class="btn-cancel" id="btnAiImportCancel">Annuler</button>
+      <button class="btn-save" id="btnAiImportParse">Analyser et pré-remplir</button>
     </div>
   </div>
 </div>
@@ -2097,6 +2139,121 @@ function closeModal(id) {
 }
 
 document.getElementById('btnAdd').addEventListener('click', () => openForm());
+
+// ── Import via IA externe (prompt + collage du résultat) ──
+const AI_IMPORT_PROMPT = `Tu es un assistant qui extrait les informations d'une étiquette de vin à partir d'une photo.
+
+Analyse l'image fournie et réponds UNIQUEMENT avec le texte structuré suivant, sans aucun commentaire, explication ou markdown autour. Remplis chaque ligne avec l'information trouvée sur l'étiquette. Si une information n'est pas visible ou pas certaine, laisse la valeur vide après les deux-points.
+
+NOM: [nom de la cuvée ou appellation principale]
+DOMAINE: [nom du producteur / château / domaine]
+MILLESIME: [année à 4 chiffres]
+REGION: [région ou appellation]
+PAYS: [pays d'origine]
+CEPAGE: [cépage(s), ex: Pinot Noir ou Merlot/Cabernet Sauvignon si assemblage]
+COULEUR: [un seul mot parmi : rouge, blanc, rosé, pétillant]
+
+Règles :
+- Réponds avec EXACTEMENT ces 7 lignes, dans cet ordre, rien d'autre.
+- N'invente aucune information : si ce n'est pas lisible sur l'étiquette, laisse la valeur vide.
+- Pour COULEUR, déduis-la du type de vin si elle n'est pas écrite explicitement (ex: Champagne → pétillant).`;
+
+document.getElementById('btnCopyPrompt').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(AI_IMPORT_PROMPT);
+    showToast('Prompt copié — colle-le dans ton IA avec une photo de l’étiquette 📋');
+  } catch (err) {
+    console.error('Clipboard error:', err);
+    showToast('Impossible de copier automatiquement, copie le texte manuellement');
+  }
+});
+
+document.getElementById('btnImportAiResult').addEventListener('click', () => {
+  document.getElementById('aiImportText').value = '';
+  document.getElementById('aiImportError').classList.add('hidden');
+  document.getElementById('modalAiImport').classList.remove('hidden');
+});
+
+document.getElementById('btnAiImportCancel').addEventListener('click', () => {
+  closeModal('modalAiImport');
+});
+
+function parseAiImportText(raw) {
+  const fieldMap = {
+    NOM: 'nom', DOMAINE: 'domaine', MILLESIME: 'millesime',
+    REGION: 'region', PAYS: 'pays', CEPAGE: 'cepage', COULEUR: 'couleur',
+  };
+  const result = {};
+  const lines = raw.split('\n');
+
+  lines.forEach(line => {
+    const match = line.match(/^\s*([A-ZÉÈÊÀ]+)\s*:\s*(.*)$/i);
+    if (!match) return;
+    const key = match[1].trim().toUpperCase();
+    const value = match[2].trim();
+    const field = fieldMap[key];
+    if (field && value) {
+      result[field] = value;
+    }
+  });
+
+  return result;
+}
+
+const COULEUR_VALIDES = ['rouge', 'blanc', 'rosé', 'pétillant'];
+
+document.getElementById('btnAiImportParse').addEventListener('click', () => {
+  const raw = document.getElementById('aiImportText').value;
+  const errorEl = document.getElementById('aiImportError');
+
+  if (!raw.trim()) {
+    errorEl.textContent = 'Colle d’abord le texte renvoyé par l’IA.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  const parsed = parseAiImportText(raw);
+
+  if (!parsed.nom && !parsed.domaine) {
+    errorEl.textContent = 'Aucun champ reconnu — vérifie que le texte collé respecte bien le format (NOM:, DOMAINE:, etc.)';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  errorEl.classList.add('hidden');
+  closeModal('modalAiImport');
+
+  // Ouvre le formulaire d'ajout puis pré-remplit avec les valeurs reconnues
+  openForm();
+
+  if (parsed.nom)       document.getElementById('fNom').value = parsed.nom;
+  if (parsed.domaine)   document.getElementById('fDomaine').value = parsed.domaine;
+  if (parsed.region)    document.getElementById('fRegion').value = parsed.region;
+  if (parsed.pays)      document.getElementById('fPays').value = parsed.pays;
+  if (parsed.cepage)    document.getElementById('fCepage').value = parsed.cepage;
+
+  if (parsed.millesime) {
+    const year = parseInt(parsed.millesime.match(/\d{4}/)?.[0]);
+    if (year) document.getElementById('fMillesime').value = year;
+  }
+
+  if (parsed.couleur) {
+    const c = parsed.couleur.trim().toLowerCase();
+    if (COULEUR_VALIDES.includes(c)) {
+      selectedCouleur = c;
+      document.querySelectorAll('.couleur-option').forEach(b => {
+        b.classList.toggle('selected', b.dataset.c === c);
+      });
+    }
+  }
+
+  showToast('Champs pré-remplis — vérifie et complète avant d’enregistrer ✓');
+});
+
+// Fermeture par clic sur l'overlay
+document.getElementById('modalAiImport').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal('modalAiImport');
+});
 
 // ── Toast ─────────────────────────────────────────────
 function showToast(msg) {
