@@ -2141,22 +2141,26 @@ function closeModal(id) {
 document.getElementById('btnAdd').addEventListener('click', () => openForm());
 
 // ── Import via IA externe (prompt + collage du résultat) ──
-const AI_IMPORT_PROMPT = `Tu es un assistant qui extrait les informations d'une étiquette de vin à partir d'une photo.
+const AI_IMPORT_PROMPT = `Tu es un sommelier expert qui extrait et complète les informations d'une étiquette de vin à partir d'une photo.
 
-Analyse l'image fournie et réponds UNIQUEMENT avec le texte structuré suivant, sans aucun commentaire, explication ou markdown autour. Remplis chaque ligne avec l'information trouvée sur l'étiquette. Si une information n'est pas visible ou pas certaine, laisse la valeur vide après les deux-points.
+Analyse l'image fournie et réponds UNIQUEMENT avec le texte structuré suivant, sans aucun commentaire, explication ou markdown autour.
 
 NOM: [nom de la cuvée ou appellation principale]
 DOMAINE: [nom du producteur / château / domaine]
 MILLESIME: [année à 4 chiffres]
 REGION: [région ou appellation]
 PAYS: [pays d'origine]
-CEPAGE: [cépage(s), ex: Pinot Noir ou Merlot/Cabernet Sauvignon si assemblage]
+CEPAGE: [cépage(s) — voir règle ci-dessous]
 COULEUR: [un seul mot parmi : rouge, blanc, rosé, pétillant]
+BOIRE_DES: [année à 4 chiffres]
+BOIRE_AVANT: [année à 4 chiffres]
 
-Règles :
-- Réponds avec EXACTEMENT ces 7 lignes, dans cet ordre, rien d'autre.
-- N'invente aucune information : si ce n'est pas lisible sur l'étiquette, laisse la valeur vide.
-- Pour COULEUR, déduis-la du type de vin si elle n'est pas écrite explicitement (ex: Champagne → pétillant).`;
+Règles pour chaque champ :
+- NOM, DOMAINE, MILLESIME, REGION, PAYS, COULEUR : lis-les directement sur l'étiquette. Si une info n'est pas visible, laisse la valeur vide.
+- CEPAGE : si le cépage n'est pas écrit explicitement sur l'étiquette, déduis-le à partir de l'appellation et de la région (ex: un Chablis est en Chardonnay, un Gevrey-Chambertin est en Pinot Noir, un Côtes-de-Provence rosé est souvent Grenache/Cinsault/Syrah). Indique le ou les cépages les plus probables. Si vraiment aucune déduction fiable n'est possible, laisse vide plutôt que d'inventer.
+- BOIRE_DES et BOIRE_AVANT : estime la fenêtre de dégustation optimale en te basant sur le type de vin, la région, le millésime et le potentiel de garde habituel de ce style de vin (ex: un Beaujolais primeur se boit jeune, un grand Bordeaux ou un Barolo peut se garder 10-20 ans). Base-toi sur tes connaissances générales d'œnologie, pas sur l'étiquette elle-même.
+
+Réponds avec EXACTEMENT ces 9 lignes, dans cet ordre, rien d'autre.`;
 
 document.getElementById('btnCopyPrompt').addEventListener('click', async () => {
   try {
@@ -2182,12 +2186,13 @@ function parseAiImportText(raw) {
   const fieldMap = {
     NOM: 'nom', DOMAINE: 'domaine', MILLESIME: 'millesime',
     REGION: 'region', PAYS: 'pays', CEPAGE: 'cepage', COULEUR: 'couleur',
+    BOIRE_DES: 'boireDes', BOIRE_AVANT: 'boireAvant',
   };
   const result = {};
   const lines = raw.split('\n');
 
   lines.forEach(line => {
-    const match = line.match(/^\s*([A-ZÉÈÊÀ]+)\s*:\s*(.*)$/i);
+    const match = line.match(/^\s*([A-ZÉÈÊÀ_]+)\s*:\s*(.*)$/i);
     if (!match) return;
     const key = match[1].trim().toUpperCase();
     const value = match[2].trim();
@@ -2235,6 +2240,16 @@ document.getElementById('btnAiImportParse').addEventListener('click', () => {
   if (parsed.millesime) {
     const year = parseInt(parsed.millesime.match(/\d{4}/)?.[0]);
     if (year) document.getElementById('fMillesime').value = year;
+  }
+
+  if (parsed.boireDes) {
+    const year = parseInt(parsed.boireDes.match(/\d{4}/)?.[0]);
+    if (year) document.getElementById('fBoireDepuis').value = year;
+  }
+
+  if (parsed.boireAvant) {
+    const year = parseInt(parsed.boireAvant.match(/\d{4}/)?.[0]);
+    if (year) document.getElementById('fBoireAvant').value = year;
   }
 
   if (parsed.couleur) {
