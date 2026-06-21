@@ -419,9 +419,37 @@
       max-width: 480px;
       max-height: 92vh;
       overflow-y: auto;
-      padding: 20px 20px 40px;
+      -webkit-overflow-scrolling: touch;
+      padding: 0 20px 40px;
       animation: slideUp 0.25s ease;
+      position: relative;
     }
+    .modal-close-bar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: flex-end;
+      padding: 14px 0 6px;
+      margin: 0 -20px 10px;
+      padding-left: 20px;
+      padding-right: 20px;
+      background: var(--bg);
+    }
+    .modal-close-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--surface2);
+      color: var(--text-muted);
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .modal-close-btn:hover { background: var(--border); }
     @media (min-width: 700px) {
       .modal-overlay {
         align-items: center;
@@ -431,12 +459,13 @@
         max-height: 94vh;
         border-radius: 20px;
         animation: fadeScale 0.2s ease;
-        padding: 24px 28px 24px;
+        padding: 0 28px 24px;
       }
+      .modal-close-bar { margin: 0 -28px 10px; padding-left: 28px; padding-right: 28px; padding-top: 18px; }
       #modalForm .modal {
         max-width: 760px;
       }
-      #modalForm .modal-handle { display: none; }
+      #modalForm .modal { padding-top: 0; }
       .form-grid-desktop {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -954,7 +983,7 @@
 <!-- ── MODAL : FORM ADD/EDIT ─────────────────────── -->
 <div class="modal-overlay hidden" id="modalForm">
   <div class="modal">
-    <div class="modal-handle"></div>
+    <div class="modal-close-bar"><button class="modal-close-btn" data-close-modal="modalForm" aria-label="Fermer">✕</button></div>
     <div class="modal-title" id="formTitle">Ajouter un vin</div>
 
     <div class="form-grid-desktop">
@@ -1073,7 +1102,7 @@
 <!-- ── MODAL : DETAIL ─────────────────────────────── -->
 <div class="modal-overlay hidden" id="modalDetail">
   <div class="modal">
-    <div class="modal-handle"></div>
+    <div class="modal-close-bar"><button class="modal-close-btn" data-close-modal="modalDetail" aria-label="Fermer">✕</button></div>
     <div id="detailContent"></div>
   </div>
 </div>
@@ -1081,7 +1110,7 @@
 <!-- ── MODAL : ARCHIVER (note de dégustation) ──────── -->
 <div class="modal-overlay hidden" id="modalArchive">
   <div class="modal" style="max-width:420px">
-    <div class="modal-handle"></div>
+    <div class="modal-close-bar"><button class="modal-close-btn" data-close-modal="modalArchive" aria-label="Fermer">✕</button></div>
     <div class="modal-title">Comment c'était ? 🍷</div>
     <div class="form-group">
       <label class="form-label">Note</label>
@@ -1107,7 +1136,7 @@
 <!-- ── MODAL : DOUBLON ──────────────────────────────── -->
 <div class="modal-overlay hidden" id="modalDuplicate">
   <div class="modal" style="max-width:480px">
-    <div class="modal-handle"></div>
+    <div class="modal-close-bar"><button class="modal-close-btn" data-close-modal="modalDuplicate" aria-label="Fermer">✕</button></div>
     <div class="modal-title">Vin déjà en cave ? 🤔</div>
     <div id="duplicateContent"></div>
     <div class="form-actions" style="flex-direction:column;gap:8px;margin-top:18px">
@@ -1121,7 +1150,7 @@
 <!-- ── MODAL : IMPORT RÉSULTAT IA ───────────────────── -->
 <div class="modal-overlay hidden" id="modalAiImport">
   <div class="modal" style="max-width:520px">
-    <div class="modal-handle"></div>
+    <div class="modal-close-bar"><button class="modal-close-btn" data-close-modal="modalAiImport" aria-label="Fermer">✕</button></div>
     <div class="modal-title">Importer un vin (IA) ✨</div>
     <p class="dup-intro">Colle ici le texte renvoyé par l'IA après lui avoir donné le prompt et une photo de l'étiquette.</p>
     <div class="form-group">
@@ -2202,6 +2231,34 @@ function closeModal(id) {
   if (id === 'modalArchive') archiveTarget = null;
   if (id === 'modalDuplicate') duplicateContext = null;
 }
+
+// ── Verrouillage du scroll de la page derrière toute modale ouverte ──
+// Observe l'ouverture/fermeture de chaque modal-overlay et bloque le scroll
+// du body tant qu'au moins une modale est visible (évite que la page
+// défile en même temps que le contenu de la fiche sur mobile).
+(function setupModalScrollLock() {
+  const overlays = document.querySelectorAll('.modal-overlay, .image-viewer');
+
+  function anyModalOpen() {
+    return [...overlays].some(el => !el.classList.contains('hidden'));
+  }
+
+  function syncBodyScroll() {
+    document.body.style.overflow = anyModalOpen() ? 'hidden' : '';
+  }
+
+  overlays.forEach(el => {
+    new MutationObserver(syncBodyScroll).observe(el, { attributes: true, attributeFilter: ['class'] });
+  });
+})();
+
+// Boutons croix génériques (data-close-modal="modalXxx")
+document.querySelectorAll('[data-close-modal]').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    closeModal(btn.dataset.closeModal);
+  });
+});
 
 document.getElementById('btnAdd').addEventListener('click', () => openForm());
 
