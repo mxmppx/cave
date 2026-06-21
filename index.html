@@ -365,13 +365,15 @@
       }
       .modal {
         max-width: 640px;
-        max-height: 88vh;
+        max-height: 94vh;
         border-radius: 20px;
         animation: fadeScale 0.2s ease;
+        padding: 24px 28px 24px;
       }
       #modalForm .modal {
         max-width: 760px;
       }
+      #modalForm .modal-handle { display: none; }
       .form-grid-desktop {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -379,10 +381,17 @@
         align-items: start;
       }
       .form-grid-desktop .form-group.span-2 { grid-column: 1 / -1; }
-      .form-group { margin-bottom: 12px; }
-      .form-textarea { min-height: 56px; }
-      .photo-upload { height: 80px; }
-      .modal-title { margin-bottom: 14px; }
+      .form-group { margin-bottom: 10px; }
+      .form-label { margin-bottom: 4px; font-size: 10px; }
+      .form-input, .form-select, .form-textarea { padding: 9px 12px; font-size: 14px; }
+      .form-textarea { min-height: 44px; }
+      .photo-upload { height: 60px; flex-direction: row; gap: 10px; }
+      .photo-upload-icon { font-size: 18px; }
+      .modal-title { margin-bottom: 12px; font-size: 18px; }
+      .couleur-option { padding: 7px 6px; }
+      .couleur-dot { width: 14px; height: 14px; }
+      .form-actions { margin-top: 14px; }
+      .btn-cancel, .btn-save, .btn-delete { height: 42px; }
     }
     @keyframes fadeScale {
       from { transform: scale(0.97); opacity: 0; }
