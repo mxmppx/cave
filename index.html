@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cave à vin</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    /* ── Tokens ──────────────────────────────────── */
+    :root {
+      --bg:        #F5F0E8;
+      --surface:   #FFFFFF;
+      --surface2:  #EDE8DF;
+      --border:    #DDD6C8;
+      --text:      #1A1410;
+      --text-muted:#7A6F62;
+      --gold:      #8B6914;
+      --gold-light:#C49A2A;
+      --rouge:     #7B1E2E;
+      --blanc:     #C8A84B;
+      --rose:      #C4637A;
+      --petillant: #3A7A6E;
+      --fortifie:  #5C3D7A;
+      --pret:      #2D7A45;
+      --attendre:  #8B6914;
+      --urgent:    #B84B2A;
+      --passe:     #7A6F62;
+      --radius:    14px;
+      --radius-sm: 8px;
+      --shadow:    0 2px 12px rgba(0,0,0,0.07);
+    }
+    .dark {
+      --bg:        #16120E;
+      --surface:   #221C16;
+      --surface2:  #2C2420;
+      --border:    #3A3028;
+      --text:      #F0EBE0;
+      --text-muted:#9A8E80;
+      --gold:      #C49A2A;
+      --gold-light:#E8C060;
+    }
+
+    /* ── Reset & base ────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+    }
+    button { cursor: pointer; border: none; background: none; font-family: inherit; }
+    input, select, textarea { font-family: inherit; }
+
+    /* ── Layout ──────────────────────────────────── */
+    .app { max-width: 480px; margin: 0 auto; padding: 0 0 100px; }
+
+    /* ── Header ──────────────────────────────────── */
+    .header {
+      padding: 52px 20px 16px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+    .header-left .eyebrow {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 4px;
+    }
+    .header-left h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      line-height: 1;
+    }
+    .header-left h1 span { color: var(--gold); }
+    .btn-theme {
+      width: 40px; height: 40px;
+      border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: var(--shadow);
+      flex-shrink: 0;
+    }
+
+    /* ── Nav tabs ────────────────────────────────── */
+    .nav {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      padding: 0 20px 20px;
+    }
+    .nav-btn {
+      padding: 8px 0;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      border-radius: var(--radius-sm);
+      text-align: center;
+      transition: all 0.15s;
+    }
+    .nav-btn.active {
+      background: var(--surface);
+      color: var(--text);
+      font-weight: 600;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+
+    /* ── Section ─────────────────────────────────── */
+    .section { padding: 0 20px; }
+    .hidden { display: none !important; }
+
+    /* ── Stat cards ──────────────────────────────── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+    .stat-card.full { grid-column: 1 / -1; }
+    .stat-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      line-height: 1;
+      color: var(--text);
+    }
+    .stat-value.gold { color: var(--gold); }
+    .stat-value.green { color: var(--pret); }
+    .stat-value.orange { color: var(--urgent); }
+    .stat-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* ── Color bar chart ─────────────────────────── */
+    .color-bars { margin-top: 8px; }
+    .color-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    .color-bar-label {
+      width: 72px;
+      text-transform: capitalize;
+      color: var(--text);
+      font-weight: 500;
+    }
+    .color-bar-track {
+      flex: 1;
+      height: 8px;
+      background: var(--surface2);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .color-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.4s ease;
+    }
+    .color-bar-count {
+      width: 28px;
+      text-align: right;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    .fill-rouge    { background: var(--rouge); }
+    .fill-blanc    { background: var(--blanc); }
+    .fill-rose     { background: var(--rose); }
+    .fill-petillant{ background: var(--petillant); }
+    .fill-fortifie { background: var(--fortifie); }
+
+    /* ── Filters (cave view) ─────────────────────── */
+    .filters {
+      display: flex;
+      gap: 7px;
+      overflow-x: auto;
+      padding-bottom: 12px;
+      margin-bottom: 4px;
+      scrollbar-width: none;
+    }
+    .filters::-webkit-scrollbar { display: none; }
+    .filter-chip {
+      flex-shrink: 0;
+      padding: 6px 14px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1.5px solid var(--border);
+      color: var(--text-muted);
+      background: var(--surface);
+      transition: all 0.15s;
+    }
+    .filter-chip.active {
+      background: var(--gold);
+      border-color: var(--gold);
+      color: #FFF;
+    }
+
+    /* ── Search + Add row ────────────────────────── */
+    .search-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .search-input {
+      flex: 1;
+      height: 44px;
+      padding: 0 14px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .search-input:focus { border-color: var(--gold); }
+    .btn-add {
+      height: 44px;
+      padding: 0 18px;
+      border-radius: var(--radius-sm);
+      background: var(--gold);
+      color: #FFF;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(139,105,20,0.3);
+      transition: opacity 0.15s;
+    }
+    .btn-add:hover { opacity: 0.88; }
+
+    /* ── Wine card ───────────────────────────────── */
+    .wine-list { display: flex; flex-direction: column; gap: 10px; }
+    .wine-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .wine-card:hover { border-color: var(--gold); }
+    .wine-thumb {
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius-sm);
+      object-fit: cover;
+      background: var(--surface2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .wine-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-sm); }
+    .wine-info { flex: 1; min-width: 0; }
+    .wine-name {
+      font-weight: 600;
+      font-size: 15px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .wine-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .wine-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .badge {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 3px 8px;
+      border-radius: 99px;
+      text-transform: uppercase;
+    }
+    .badge-pret     { background: #D6F0DE; color: var(--pret); }
+    .badge-attendre { background: #FBF0D0; color: var(--attendre); }
+    .badge-urgent   { background: #FAE0D6; color: var(--urgent); }
+    .badge-passe    { background: var(--surface2); color: var(--passe); }
+    .wine-qty {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .dot-couleur {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 4px;
+    }
+
+    /* ── Empty state ─────────────────────────────── */
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+    .empty p { font-size: 14px; }
+
+    /* ── Modal overlay ───────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    .modal {
+      background: var(--bg);
+      border-radius: 24px 24px 0 0;
+      width: 100%;
+      max-width: 480px;
+      max-height: 92vh;
+      overflow-y: auto;
+      padding: 20px 20px 40px;
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    .modal-handle {
+      width: 40px; height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      margin: 0 auto 20px;
+    }
+    .modal-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      letter-spacing: -0.3px;
+    }
+
+    /* ── Form ────────────────────────────────────── */
+    .form-group { margin-bottom: 16px; }
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.15s;
+      -webkit-appearance: none;
+    }
+    .form-select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237A6F62' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 36px;
+    }
+    .form-textarea { resize: none; min-height: 80px; }
+    .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--gold); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+    /* ── Colour picker ───────────────────────────── */
+    .couleur-picker {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .couleur-option {
+      flex: 1;
+      min-width: 80px;
+      padding: 10px 6px;
+      border-radius: var(--radius-sm);
+      border: 2px solid var(--border);
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: var(--text-muted);
+      background: var(--surface);
+      transition: all 0.15s;
+    }
+    .couleur-option.selected {
+      border-color: var(--gold);
+      color: var(--text);
+      background: var(--surface2);
+    }
+    .couleur-dot { width: 18px; height: 18px; border-radius: 50%; }
+
+    /* ── Photo upload ────────────────────────────── */
+    .photo-upload {
+      width: 100%;
+      height: 120px;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 13px;
+      transition: border-color 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+    .photo-upload:hover { border-color: var(--gold); }
+    .photo-upload img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .photo-upload input { display: none; }
+    .photo-upload-icon { font-size: 28px; }
+
+    /* ── Form actions ────────────────────────────── */
+    .form-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 24px;
+    }
+    .btn-cancel {
+      flex: 1;
+      height: 48px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      color: var(--text-muted);
+      font-size: 15px;
+      font-weight: 600;
+      background: var(--surface);
+    }
+    .btn-save {
+      flex: 2;
+      height: 48px;
+      border-radius: var(--radius-sm);
+      background: var(--gold);
+      color: #FFF;
+      font-size: 15px;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(139,105,20,0.3);
+      transition: opacity 0.15s;
+    }
+    .btn-save:hover { opacity: 0.88; }
+    .btn-delete {
+      height: 48px;
+      padding: 0 16px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid #FAE0D6;
+      color: var(--urgent);
+      font-size: 13px;
+      font-weight: 600;
+      background: transparent;
+    }
+
+    /* ── Detail modal ────────────────────────────── */
+    .detail-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .detail-photo {
+      width: 80px;
+      height: 80px;
+      border-radius: var(--radius);
+      object-fit: cover;
+      background: var(--surface2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 38px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .detail-photo img { width: 100%; height: 100%; object-fit: cover; }
+    .detail-title { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+    .detail-sub { font-size: 14px; color: var(--text-muted); margin-top: 3px; }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .detail-item {
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+    }
+    .detail-item-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .detail-item-value { font-size: 15px; font-weight: 600; }
+    .detail-notes {
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      margin-bottom: 16px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+    .detail-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .btn-edit {
+      flex: 2;
+      height: 48px;
+      border-radius: var(--radius-sm);
+      background: var(--gold);
+      color: #FFF;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .btn-consume {
+      flex: 1;
+      height: 48px;
+      border-radius: var(--radius-sm);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      border: 1.5px solid var(--border);
+    }
+
+    /* ── Stats page extras ───────────────────────── */
+    .region-list { margin-top: 8px; }
+    .region-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    .region-row:last-child { border-bottom: none; }
+    .region-name { font-weight: 500; }
+    .region-count {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    /* ── Loading ─────────────────────────────────── */
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* ── Toast ───────────────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 110px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--text);
+      color: var(--bg);
+      padding: 10px 20px;
+      border-radius: 99px;
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0;
+      transition: all 0.25s;
+      z-index: 200;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="eyebrow">Gestion cave</div>
+      <h1>Ma <span>cave</span></h1>
+    </div>
+    <button class="btn-theme" id="btnTheme" aria-label="Thème">🌙</button>
+  </div>
+
+  <!-- Nav -->
+  <div class="nav">
+    <button class="nav-btn active" data-tab="cave">Cave</button>
+    <button class="nav-btn" data-tab="stats">Stats</button>
+    <button class="nav-btn" data-tab="a-boire">À boire</button>
+  </div>
+
+  <!-- ── TAB : CAVE ─────────────────────────────── -->
+  <div class="section" id="tab-cave">
+    <div class="search-row">
+      <input class="search-input" type="search" placeholder="Rechercher..." id="searchInput" />
+      <button class="btn-add" id="btnAdd">+ Ajouter</button>
+    </div>
+    <div class="filters" id="colorFilters">
+      <button class="filter-chip active" data-filter="tous">Tous</button>
+      <button class="filter-chip" data-filter="rouge">🍷 Rouge</button>
+      <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
+      <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
+      <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
+      <button class="filter-chip" data-filter="fortifié">🍶 Fortifié</button>
+    </div>
+    <div class="wine-list" id="wineList">
+      <div class="loading">Chargement…</div>
+    </div>
+  </div>
+
+  <!-- ── TAB : STATS ────────────────────────────── -->
+  <div class="section hidden" id="tab-stats">
+    <div class="stat-grid" id="statsGrid">
+      <div class="loading" style="grid-column:1/-1">Chargement…</div>
+    </div>
+  </div>
+
+  <!-- ── TAB : À BOIRE ─────────────────────────── -->
+  <div class="section hidden" id="tab-a-boire">
+    <div class="wine-list" id="aBoireList">
+      <div class="loading">Chargement…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ── MODAL : FORM ADD/EDIT ─────────────────────── -->
+<div class="modal-overlay hidden" id="modalForm">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="formTitle">Ajouter un vin</div>
+
+    <div class="form-group">
+      <label class="form-label">Nom / Appellation *</label>
+      <input class="form-input" id="fNom" placeholder="Ex : Gevrey-Chambertin 1er Cru" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Domaine</label>
+        <input class="form-input" id="fDomaine" placeholder="Ex : Rossignol" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Millésime</label>
+        <input class="form-input" id="fMillesime" type="number" placeholder="2020" min="1900" max="2099" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Région</label>
+        <input class="form-input" id="fRegion" placeholder="Bourgogne" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Pays</label>
+        <input class="form-input" id="fPays" placeholder="France" value="France" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Couleur *</label>
+      <div class="couleur-picker" id="couleurPicker">
+        <button class="couleur-option" data-c="rouge">
+          <span class="couleur-dot" style="background:var(--rouge)"></span>Rouge
+        </button>
+        <button class="couleur-option" data-c="blanc">
+          <span class="couleur-dot" style="background:var(--blanc)"></span>Blanc
+        </button>
+        <button class="couleur-option" data-c="rosé">
+          <span class="couleur-dot" style="background:var(--rose)"></span>Rosé
+        </button>
+        <button class="couleur-option" data-c="pétillant">
+          <span class="couleur-dot" style="background:var(--petillant)"></span>Pétillant
+        </button>
+        <button class="couleur-option" data-c="fortifié">
+          <span class="couleur-dot" style="background:var(--fortifie)"></span>Fortifié
+        </button>
+      </div>
+    </div>
+
+    <div class="form-row-3">
+      <div class="form-group">
+        <label class="form-label">Quantité</label>
+        <input class="form-input" id="fQuantite" type="number" value="1" min="0" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Boire dès</label>
+        <input class="form-input" id="fBoireDepuis" type="number" placeholder="2024" min="2000" max="2060" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Boire avant</label>
+        <input class="form-input" id="fBoireAvant" type="number" placeholder="2030" min="2000" max="2060" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Prix d'achat (CHF)</label>
+      <input class="form-input" id="fPrix" type="number" placeholder="0.00" step="0.01" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="fNotes" placeholder="Tanins soyeux, nez de fruits rouges…"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Photo étiquette</label>
+      <label class="photo-upload" id="photoUploadLabel">
+        <span class="photo-upload-icon">📷</span>
+        <span id="photoUploadText">Appuyer pour ajouter</span>
+        <input type="file" id="fPhoto" accept="image/*" />
+        <img id="photoPreview" style="display:none" alt="preview" />
+      </label>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn-cancel" id="btnFormCancel">Annuler</button>
+      <button class="btn-delete hidden" id="btnDelete">🗑</button>
+      <button class="btn-save" id="btnFormSave">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL : DETAIL ─────────────────────────────── -->
+<div class="modal-overlay hidden" id="modalDetail">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="detailContent"></div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG — remplacez par vos clés Supabase ──────────
+const SUPABASE_URL = 'https://VOTRE_PROJET.supabase.co';
+const SUPABASE_KEY = 'VOTRE_ANON_KEY';
+// ──────────────────────────────────────────────────────
+
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── State ─────────────────────────────────────────────
+let wines = [];
+let filterCouleur = 'tous';
+let filterSearch = '';
+let editingId = null;
+let selectedCouleur = null;
+let uploadedPhotoFile = null;
+let darkMode = localStorage.getItem('cave-dark') === '1';
+
+// ── Theme ─────────────────────────────────────────────
+function applyTheme() {
+  document.body.classList.toggle('dark', darkMode);
+  document.getElementById('btnTheme').textContent = darkMode ? '☀️' : '🌙';
+}
+applyTheme();
+document.getElementById('btnTheme').addEventListener('click', () => {
+  darkMode = !darkMode;
+  localStorage.setItem('cave-dark', darkMode ? '1' : '0');
+  applyTheme();
+});
+
+// ── Tab navigation ────────────────────────────────────
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    ['cave','stats','a-boire'].forEach(t => {
+      document.getElementById('tab-' + t).classList.toggle('hidden', t !== btn.dataset.tab);
+    });
+    if (btn.dataset.tab === 'stats') renderStats();
+    if (btn.dataset.tab === 'a-boire') renderABoire();
+  });
+});
+
+// ── Load wines ────────────────────────────────────────
+async function loadWines() {
+  const { data, error } = await db.from('wines').select('*').order('boire_avant', { ascending: true, nullsFirst: false });
+  if (error) { console.error(error); return; }
+  wines = data || [];
+  renderCave();
+}
+
+// ── Helpers ───────────────────────────────────────────
+const YEAR = new Date().getFullYear();
+
+function getStatut(w) {
+  const debut = w.boire_a_partir_de;
+  const fin   = w.boire_avant;
+  if (!debut && !fin) return null;
+  if (fin && YEAR > fin) return 'passe';
+  if (debut && YEAR < debut) return 'attendre';
+  if (fin && fin - YEAR <= 1) return 'urgent';
+  return 'pret';
+}
+
+function statutBadge(statut) {
+  const map = {
+    pret:     ['badge-pret',     'Prêt'],
+    attendre: ['badge-attendre', 'Attendre'],
+    urgent:   ['badge-urgent',   'À boire !'],
+    passe:    ['badge-passe',    'Passé'],
+  };
+  if (!statut) return '';
+  const [cls, label] = map[statut];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+const COULEUR_EMOJI = {
+  rouge: '🍷', blanc: '🥂', 'rosé': '🌸', 'pétillant': '✨', 'fortifié': '🍶'
+};
+const COULEUR_VAR = {
+  rouge: '--rouge', blanc: '--blanc', 'rosé': '--rose', 'pétillant': '--petillant', 'fortifié': '--fortifie'
+};
+const COULEUR_CLASS = {
+  rouge: 'fill-rouge', blanc: 'fill-blanc', 'rosé': 'fill-rose', 'pétillant': 'fill-petillant', 'fortifié': 'fill-fortifie'
+};
+
+function photoOrEmoji(w, size = 52) {
+  if (w.photo_url) {
+    return `<div class="wine-thumb" style="width:${size}px;height:${size}px"><img src="${w.photo_url}" alt="${w.nom}" /></div>`;
+  }
+  return `<div class="wine-thumb" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.5)}px">${COULEUR_EMOJI[w.couleur] || '🍾'}</div>`;
+}
+
+// ── Render cave ───────────────────────────────────────
+function renderCave() {
+  const list = document.getElementById('wineList');
+  let filtered = wines.filter(w => {
+    const matchCouleur = filterCouleur === 'tous' || w.couleur === filterCouleur;
+    const q = filterSearch.toLowerCase();
+    const matchSearch = !q || w.nom.toLowerCase().includes(q)
+      || (w.domaine || '').toLowerCase().includes(q)
+      || (w.region || '').toLowerCase().includes(q);
+    return matchCouleur && matchSearch;
+  });
+
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">🍾</div><h3>Aucun vin trouvé</h3><p>Ajoutez votre première bouteille !</p></div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(w => {
+    const statut = getStatut(w);
+    const sub = [w.domaine, w.millesime, w.region].filter(Boolean).join(' · ');
+    return `
+      <div class="wine-card" data-id="${w.id}">
+        ${photoOrEmoji(w)}
+        <div class="wine-info">
+          <div class="wine-name">${w.nom}</div>
+          <div class="wine-sub">${sub || '—'}</div>
+        </div>
+        <div class="wine-right">
+          ${statutBadge(statut)}
+          <div class="wine-qty">${w.quantite} btl</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  list.querySelectorAll('.wine-card').forEach(card => {
+    card.addEventListener('click', () => openDetail(card.dataset.id));
+  });
+}
+
+// ── Render stats ──────────────────────────────────────
+function renderStats() {
+  const grid = document.getElementById('statsGrid');
+  if (!wines.length) {
+    grid.innerHTML = `<div class="loading" style="grid-column:1/-1">Aucune donnée</div>`;
+    return;
+  }
+
+  const total = wines.reduce((s, w) => s + (w.quantite || 0), 0);
+  const lignes = wines.length;
+  const valeur = wines.reduce((s, w) => s + (w.prix_achat || 0) * (w.quantite || 0), 0);
+
+  const statutCounts = { pret: 0, attendre: 0, urgent: 0, passe: 0 };
+  wines.forEach(w => { const s = getStatut(w); if (s) statutCounts[s]++; });
+
+  const couleurCounts = {};
+  wines.forEach(w => {
+    const c = w.couleur || 'autre';
+    couleurCounts[c] = (couleurCounts[c] || 0) + (w.quantite || 0);
+  });
+  const maxCouleur = Math.max(...Object.values(couleurCounts), 1);
+
+  const regionCounts = {};
+  wines.forEach(w => {
+    if (w.region) regionCounts[w.region] = (regionCounts[w.region] || 0) + (w.quantite || 0);
+  });
+  const regions = Object.entries(regionCounts).sort((a,b) => b[1]-a[1]).slice(0, 8);
+
+  const colorBars = Object.entries(couleurCounts).map(([c, n]) => `
+    <div class="color-bar-row">
+      <div class="color-bar-label">${COULEUR_EMOJI[c] || '🍾'} ${c}</div>
+      <div class="color-bar-track"><div class="color-bar-fill ${COULEUR_CLASS[c] || ''}" style="width:${Math.round(n/maxCouleur*100)}%"></div></div>
+      <div class="color-bar-count">${n}</div>
+    </div>`).join('');
+
+  const regionRows = regions.map(([r, n]) => `
+    <div class="region-row">
+      <span class="region-name">${r}</span>
+      <span class="region-count">${n} btl</span>
+    </div>`).join('');
+
+  grid.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Total bouteilles</div>
+      <div class="stat-value gold">${total}</div>
+      <div class="stat-sub">${lignes} référence${lignes > 1 ? 's' : ''}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Valeur estimée</div>
+      <div class="stat-value">${valeur ? valeur.toLocaleString('fr-CH', {maximumFractionDigits:0}) : '—'}</div>
+      <div class="stat-sub">${valeur ? 'CHF' : 'prix non saisis'}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Prêts à boire</div>
+      <div class="stat-value green">${statutCounts.pret}</div>
+      <div class="stat-sub">${statutCounts.urgent} urgents · ${statutCounts.attendre} en attente</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Périmés</div>
+      <div class="stat-value" style="color:var(--passe)">${statutCounts.passe}</div>
+      <div class="stat-sub">fenêtre dépassée</div>
+    </div>
+    <div class="stat-card full">
+      <div class="stat-label">Répartition par couleur</div>
+      <div class="color-bars">${colorBars}</div>
+    </div>
+    ${regions.length ? `
+    <div class="stat-card full">
+      <div class="stat-label">Par région</div>
+      <div class="region-list">${regionRows}</div>
+    </div>` : ''}
+  `;
+}
+
+// ── Render à boire ────────────────────────────────────
+function renderABoire() {
+  const list = document.getElementById('aBoireList');
+  const prêts = wines.filter(w => {
+    const s = getStatut(w);
+    return s === 'pret' || s === 'urgent';
+  }).sort((a,b) => {
+    const sa = getStatut(a), sb = getStatut(b);
+    if (sa === 'urgent' && sb !== 'urgent') return -1;
+    if (sb === 'urgent' && sa !== 'urgent') return 1;
+    return (a.boire_avant || 9999) - (b.boire_avant || 9999);
+  });
+
+  if (!prêts.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">⏳</div><h3>Rien à boire pour l'instant</h3><p>Vos vins ne sont pas encore prêts.</p></div>`;
+    return;
+  }
+  list.innerHTML = prêts.map(w => {
+    const statut = getStatut(w);
+    const sub = [w.domaine, w.millesime, w.region].filter(Boolean).join(' · ');
+    const fin = w.boire_avant ? `jusqu'en ${w.boire_avant}` : '';
+    return `
+      <div class="wine-card" data-id="${w.id}">
+        ${photoOrEmoji(w)}
+        <div class="wine-info">
+          <div class="wine-name">${w.nom}</div>
+          <div class="wine-sub">${sub || '—'}</div>
+          ${fin ? `<div class="wine-sub" style="color:var(--urgent);font-size:11px;margin-top:2px">${fin}</div>` : ''}
+        </div>
+        <div class="wine-right">
+          ${statutBadge(statut)}
+          <div class="wine-qty">${w.quantite} btl</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  list.querySelectorAll('.wine-card').forEach(card => {
+    card.addEventListener('click', () => openDetail(card.dataset.id));
+  });
+}
+
+// ── Filters ───────────────────────────────────────────
+document.getElementById('colorFilters').addEventListener('click', e => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  filterCouleur = chip.dataset.filter;
+  renderCave();
+});
+
+document.getElementById('searchInput').addEventListener('input', e => {
+  filterSearch = e.target.value;
+  renderCave();
+});
+
+// ── Detail modal ──────────────────────────────────────
+function openDetail(id) {
+  const w = wines.find(x => x.id === id);
+  if (!w) return;
+  const statut = getStatut(w);
+  const fenetre = w.boire_a_partir_de && w.boire_avant
+    ? `${w.boire_a_partir_de} – ${w.boire_avant}`
+    : w.boire_a_partir_de ? `dès ${w.boire_a_partir_de}`
+    : w.boire_avant ? `avant ${w.boire_avant}` : '—';
+
+  document.getElementById('detailContent').innerHTML = `
+    <div class="detail-header">
+      ${w.photo_url
+        ? `<div class="detail-photo"><img src="${w.photo_url}" /></div>`
+        : `<div class="detail-photo">${COULEUR_EMOJI[w.couleur] || '🍾'}</div>`
+      }
+      <div>
+        <div class="detail-title">${w.nom}</div>
+        <div class="detail-sub">${[w.domaine, w.region, w.pays].filter(Boolean).join(' · ')}</div>
+        <div style="margin-top:8px">${statutBadge(statut)}</div>
+      </div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-item">
+        <div class="detail-item-label">Millésime</div>
+        <div class="detail-item-value">${w.millesime || '—'}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-item-label">Couleur</div>
+        <div class="detail-item-value" style="text-transform:capitalize">${COULEUR_EMOJI[w.couleur] || ''} ${w.couleur}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-item-label">Quantité</div>
+        <div class="detail-item-value">${w.quantite} bouteille${w.quantite > 1 ? 's' : ''}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-item-label">Prix unitaire</div>
+        <div class="detail-item-value">${w.prix_achat ? w.prix_achat.toLocaleString('fr-CH') + ' CHF' : '—'}</div>
+      </div>
+      <div class="detail-item" style="grid-column:1/-1">
+        <div class="detail-item-label">Fenêtre de dégustation</div>
+        <div class="detail-item-value">${fenetre}</div>
+      </div>
+    </div>
+    ${w.notes ? `<div class="detail-notes">💬 ${w.notes}</div>` : ''}
+    <div class="detail-actions">
+      <button class="btn-consume" id="btnConsume">−1 bouteille</button>
+      <button class="btn-edit" id="btnDetailEdit">Modifier</button>
+    </div>
+  `;
+
+  document.getElementById('btnDetailEdit').addEventListener('click', () => {
+    closeModal('modalDetail');
+    openForm(id);
+  });
+  document.getElementById('btnConsume').addEventListener('click', async () => {
+    if (w.quantite <= 0) return;
+    const newQty = w.quantite - 1;
+    await db.from('wines').update({ quantite: newQty }).eq('id', id);
+    w.quantite = newQty;
+    showToast('Bouteille consommée 🍷');
+    closeModal('modalDetail');
+    renderCave();
+  });
+
+  document.getElementById('modalDetail').classList.remove('hidden');
+}
+
+// ── Form modal ────────────────────────────────────────
+function openForm(id = null) {
+  editingId = id;
+  selectedCouleur = null;
+  uploadedPhotoFile = null;
+
+  document.getElementById('formTitle').textContent = id ? 'Modifier le vin' : 'Ajouter un vin';
+  document.getElementById('btnDelete').classList.toggle('hidden', !id);
+  document.getElementById('photoPreview').style.display = 'none';
+  document.getElementById('photoUploadText').textContent = 'Appuyer pour ajouter';
+
+  const fields = { fNom:'', fDomaine:'', fMillesime:'', fRegion:'', fPays:'France', fQuantite:1, fBoireDepuis:'', fBoireAvant:'', fPrix:'', fNotes:'' };
+
+  if (id) {
+    const w = wines.find(x => x.id === id);
+    if (w) {
+      fields.fNom       = w.nom || '';
+      fields.fDomaine   = w.domaine || '';
+      fields.fMillesime = w.millesime || '';
+      fields.fRegion    = w.region || '';
+      fields.fPays      = w.pays || 'France';
+      fields.fQuantite  = w.quantite ?? 1;
+      fields.fBoireDepuis = w.boire_a_partir_de || '';
+      fields.fBoireAvant  = w.boire_avant || '';
+      fields.fPrix      = w.prix_achat || '';
+      fields.fNotes     = w.notes || '';
+      selectedCouleur   = w.couleur;
+
+      if (w.photo_url) {
+        document.getElementById('photoPreview').src = w.photo_url;
+        document.getElementById('photoPreview').style.display = 'block';
+        document.getElementById('photoUploadText').textContent = '';
+      }
+    }
+  }
+
+  Object.entries(fields).forEach(([k,v]) => { document.getElementById(k).value = v; });
+
+  document.querySelectorAll('.couleur-option').forEach(b => {
+    b.classList.toggle('selected', b.dataset.c === selectedCouleur);
+  });
+
+  document.getElementById('modalForm').classList.remove('hidden');
+}
+
+// Colour picker
+document.getElementById('couleurPicker').addEventListener('click', e => {
+  const btn = e.target.closest('.couleur-option');
+  if (!btn) return;
+  selectedCouleur = btn.dataset.c;
+  document.querySelectorAll('.couleur-option').forEach(b => b.classList.toggle('selected', b.dataset.c === selectedCouleur));
+});
+
+// Photo preview
+document.getElementById('fPhoto').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  uploadedPhotoFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('photoPreview').src = ev.target.result;
+    document.getElementById('photoPreview').style.display = 'block';
+    document.getElementById('photoUploadText').textContent = '';
+  };
+  reader.readAsDataURL(file);
+});
+
+// Save
+document.getElementById('btnFormSave').addEventListener('click', async () => {
+  const nom = document.getElementById('fNom').value.trim();
+  if (!nom) { showToast('Le nom est requis'); return; }
+  if (!selectedCouleur) { showToast('Sélectionnez une couleur'); return; }
+
+  const btn = document.getElementById('btnFormSave');
+  btn.textContent = 'Enregistrement…';
+  btn.disabled = true;
+
+  let photoUrl = editingId ? (wines.find(x => x.id === editingId)?.photo_url || null) : null;
+
+  if (uploadedPhotoFile) {
+    const ext = uploadedPhotoFile.name.split('.').pop();
+    const path = `${Date.now()}.${ext}`;
+    const { error: upErr } = await db.storage.from('wine-labels').upload(path, uploadedPhotoFile, { upsert: true });
+    if (!upErr) {
+      const { data: urlData } = db.storage.from('wine-labels').getPublicUrl(path);
+      photoUrl = urlData.publicUrl;
+    }
+  }
+
+  const payload = {
+    nom,
+    domaine:            document.getElementById('fDomaine').value.trim() || null,
+    millesime:          parseInt(document.getElementById('fMillesime').value) || null,
+    region:             document.getElementById('fRegion').value.trim() || null,
+    pays:               document.getElementById('fPays').value.trim() || 'France',
+    couleur:            selectedCouleur,
+    quantite:           parseInt(document.getElementById('fQuantite').value) || 1,
+    boire_a_partir_de:  parseInt(document.getElementById('fBoireDepuis').value) || null,
+    boire_avant:        parseInt(document.getElementById('fBoireAvant').value) || null,
+    prix_achat:         parseFloat(document.getElementById('fPrix').value) || null,
+    notes:              document.getElementById('fNotes').value.trim() || null,
+    photo_url:          photoUrl,
+  };
+
+  let err;
+  if (editingId) {
+    ({ error: err } = await db.from('wines').update(payload).eq('id', editingId));
+  } else {
+    ({ error: err } = await db.from('wines').insert(payload));
+  }
+
+  btn.textContent = 'Enregistrer';
+  btn.disabled = false;
+
+  if (err) { console.error(err); showToast('Erreur lors de l\'enregistrement'); return; }
+  closeModal('modalForm');
+  showToast(editingId ? 'Vin modifié ✓' : 'Vin ajouté 🍾');
+  await loadWines();
+});
+
+// Delete
+document.getElementById('btnDelete').addEventListener('click', async () => {
+  if (!editingId) return;
+  if (!confirm('Supprimer ce vin ?')) return;
+  await db.from('wines').delete().eq('id', editingId);
+  closeModal('modalForm');
+  showToast('Vin supprimé');
+  await loadWines();
+});
+
+// Cancel
+document.getElementById('btnFormCancel').addEventListener('click', () => closeModal('modalForm'));
+
+// Close on overlay click
+['modalForm','modalDetail'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeModal(id);
+  });
+});
+
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+  editingId = null;
+  uploadedPhotoFile = null;
+}
+
+document.getElementById('btnAdd').addEventListener('click', () => openForm());
+
+// ── Toast ─────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── Init ──────────────────────────────────────────────
+loadWines();
+</script>
+</body>
+</html>
