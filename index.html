@@ -844,6 +844,12 @@
         <option value="nom">Nom (A → Z)</option>
       </select>
     </div>
+    <div class="sort-row">
+      <span class="sort-label">Cépage</span>
+      <select class="form-select sort-select" id="cepageFilterSelect">
+        <option value="tous">Tous les cépages</option>
+      </select>
+    </div>
     <div class="wine-list" id="wineList">
       <div class="loading">Chargement…</div>
     </div>
@@ -912,6 +918,32 @@
         <label class="form-label">Pays</label>
         <input class="form-input" id="fPays" placeholder="France" value="France" />
       </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Cépage</label>
+      <input class="form-input" id="fCepage" list="cepageList" placeholder="Ex : Pinot Noir, Assemblage Merlot/Cabernet…" />
+      <datalist id="cepageList">
+        <option value="Pinot Noir">
+        <option value="Cabernet Sauvignon">
+        <option value="Merlot">
+        <option value="Syrah">
+        <option value="Gamay">
+        <option value="Chasselas">
+        <option value="Chardonnay">
+        <option value="Sauvignon Blanc">
+        <option value="Riesling">
+        <option value="Gewürztraminer">
+        <option value="Pinot Gris">
+        <option value="Grenache">
+        <option value="Tempranillo">
+        <option value="Sangiovese">
+        <option value="Nebbiolo">
+        <option value="Malbec">
+        <option value="Zinfandel">
+        <option value="Viognier">
+        <option value="Petite Arvine">
+        <option value="Assemblage">
+      </datalist>
     </div>
 
     <div class="form-group span-2">
@@ -1161,15 +1193,41 @@ document.getElementById('sortSelect').addEventListener('change', e => {
   renderCave();
 });
 
+let cepageFilter = 'tous';
+document.getElementById('cepageFilterSelect').addEventListener('change', e => {
+  cepageFilter = e.target.value;
+  renderCave();
+});
+
+function updateCepageFilterOptions() {
+  const select = document.getElementById('cepageFilterSelect');
+  const cepages = [...new Set(wines.map(w => w.cepage).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Tous les cépages</option>` +
+    cepages.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  // Conserve la sélection si elle est toujours valide, sinon revient à "tous"
+  if (cepages.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    cepageFilter = 'tous';
+  }
+}
+
 function renderCave() {
+  updateCepageFilterOptions();
+
   const list = document.getElementById('wineList');
   let filtered = wines.filter(w => {
     const matchCouleur = filterCouleur === 'tous' || w.couleur === filterCouleur;
+    const matchCepage = cepageFilter === 'tous' || w.cepage === cepageFilter;
     const q = filterSearch.toLowerCase();
     const matchSearch = !q || w.nom.toLowerCase().includes(q)
       || (w.domaine || '').toLowerCase().includes(q)
-      || (w.region || '').toLowerCase().includes(q);
-    return matchCouleur && matchSearch;
+      || (w.region || '').toLowerCase().includes(q)
+      || (w.cepage || '').toLowerCase().includes(q);
+    return matchCouleur && matchCepage && matchSearch;
   });
 
   filtered = sortWines(filtered);
@@ -1181,7 +1239,7 @@ function renderCave() {
 
   list.innerHTML = filtered.map(w => {
     const statut = getStatut(w);
-    const sub = [w.domaine, w.millesime, w.region].filter(Boolean).join(' · ');
+    const sub = [w.domaine, w.millesime, w.cepage, w.region].filter(Boolean).join(' · ');
     const dejaBu = getDejaBuCount(w);
     return `
       <div class="wine-card" data-id="${w.id}">
@@ -1244,6 +1302,18 @@ function renderStats() {
       <span class="region-count">${n} btl</span>
     </div>`).join('');
 
+  const cepageCounts = {};
+  wines.forEach(w => {
+    if (w.cepage) cepageCounts[w.cepage] = (cepageCounts[w.cepage] || 0) + (w.quantite || 0);
+  });
+  const cepages = Object.entries(cepageCounts).sort((a,b) => b[1]-a[1]).slice(0, 8);
+
+  const cepageRows = cepages.map(([c, n]) => `
+    <div class="region-row">
+      <span class="region-name">${c}</span>
+      <span class="region-count">${n} btl</span>
+    </div>`).join('');
+
   grid.innerHTML = `
     <div class="stat-card">
       <div class="stat-label">Total bouteilles</div>
@@ -1274,6 +1344,11 @@ function renderStats() {
       <div class="stat-label">Par région</div>
       <div class="region-list">${regionRows}</div>
     </div>` : ''}
+    ${cepages.length ? `
+    <div class="stat-card full">
+      <div class="stat-label">Par cépage</div>
+      <div class="region-list">${cepageRows}</div>
+    </div>` : ''}
   `;
 }
 
@@ -1296,7 +1371,7 @@ function renderABoire() {
   }
   list.innerHTML = prêts.map(w => {
     const statut = getStatut(w);
-    const sub = [w.domaine, w.millesime, w.region].filter(Boolean).join(' · ');
+    const sub = [w.domaine, w.millesime, w.cepage, w.region].filter(Boolean).join(' · ');
     const fin = w.boire_avant ? `jusqu'en ${w.boire_avant}` : '';
     return `
       <div class="wine-card" data-id="${w.id}">
@@ -1389,6 +1464,7 @@ function renderHistorique() {
     const matchSearch = !q || w.nom.toLowerCase().includes(q)
       || (w.domaine || '').toLowerCase().includes(q)
       || (w.region || '').toLowerCase().includes(q)
+      || (w.cepage || '').toLowerCase().includes(q)
       || (w.note_degustation || '').toLowerCase().includes(q);
     return matchFavoris && matchSearch;
   });
@@ -1399,7 +1475,7 @@ function renderHistorique() {
   }
 
   list.innerHTML = filtered.map(w => {
-    const sub = [w.domaine, w.millesime, w.region].filter(Boolean).join(' · ');
+    const sub = [w.domaine, w.millesime, w.cepage, w.region].filter(Boolean).join(' · ');
     const date = w.date_consommation
       ? new Date(w.date_consommation).toLocaleDateString('fr-CH', { day: 'numeric', month: 'short', year: 'numeric' })
       : '';
@@ -1484,6 +1560,10 @@ function openDetail(id) {
         <div class="detail-item-value" style="text-transform:capitalize">${COULEUR_EMOJI[w.couleur] || ''} ${w.couleur}</div>
       </div>
       <div class="detail-item">
+        <div class="detail-item-label">Cépage</div>
+        <div class="detail-item-value">${w.cepage || '—'}</div>
+      </div>
+      <div class="detail-item">
         <div class="detail-item-label">Quantité</div>
         <div class="detail-item-value">${w.quantite} bouteille${w.quantite > 1 ? 's' : ''}</div>
       </div>
@@ -1556,6 +1636,10 @@ function openArchiveDetail(id) {
         <div class="detail-item-value" style="text-transform:capitalize">${COULEUR_EMOJI[w.couleur] || ''} ${w.couleur || '—'}</div>
       </div>
       <div class="detail-item">
+        <div class="detail-item-label">Cépage</div>
+        <div class="detail-item-value">${w.cepage || '—'}</div>
+      </div>
+      <div class="detail-item">
         <div class="detail-item-label">Quantité bue</div>
         <div class="detail-item-value">${w.quantite_bue} bouteille${w.quantite_bue > 1 ? 's' : ''}</div>
       </div>
@@ -1586,6 +1670,7 @@ function openArchiveDetail(id) {
       region: w.region,
       pays: w.pays,
       couleur: w.couleur,
+      cepage: w.cepage,
       prix_achat: w.prix_achat,
       quantite: w.quantite_bue,
       notes: w.notes,
@@ -1653,6 +1738,7 @@ async function confirmArchive() {
     region: w.region,
     pays: w.pays,
     couleur: w.couleur,
+    cepage: w.cepage,
     prix_achat: w.prix_achat,
     quantite_bue: quantiteBue,
     photo_url: w.photo_url,
@@ -1698,7 +1784,7 @@ function openForm(id = null) {
   document.getElementById('btnScanLabel').classList.add('hidden');
   document.getElementById('fPhoto').value = ''; // reset pour garantir le déclenchement de 'change' même en ressélectionnant le même fichier
 
-  const fields = { fNom:'', fDomaine:'', fMillesime:'', fRegion:'', fPays:'France', fQuantite:1, fBoireDepuis:'', fBoireAvant:'', fPrix:'', fNotes:'' };
+  const fields = { fNom:'', fDomaine:'', fMillesime:'', fRegion:'', fPays:'France', fCepage:'', fQuantite:1, fBoireDepuis:'', fBoireAvant:'', fPrix:'', fNotes:'' };
 
   if (id) {
     const w = wines.find(x => x.id === id);
@@ -1708,6 +1794,7 @@ function openForm(id = null) {
       fields.fMillesime = w.millesime || '';
       fields.fRegion    = w.region || '';
       fields.fPays      = w.pays || 'France';
+      fields.fCepage    = w.cepage || '';
       fields.fQuantite  = w.quantite ?? 1;
       fields.fBoireDepuis = w.boire_a_partir_de || '';
       fields.fBoireAvant  = w.boire_avant || '';
@@ -1879,6 +1966,7 @@ function buildWinePayload(nom) {
     millesime:          parseInt(document.getElementById('fMillesime').value) || null,
     region:             document.getElementById('fRegion').value.trim() || null,
     pays:               document.getElementById('fPays').value.trim() || 'France',
+    cepage:             document.getElementById('fCepage').value.trim() || null,
     couleur:            selectedCouleur,
     quantite:           parseInt(document.getElementById('fQuantite').value) || 1,
     boire_a_partir_de:  parseInt(document.getElementById('fBoireDepuis').value) || null,
@@ -1934,6 +2022,7 @@ function openDuplicateModal(existing, newPayload) {
       <div class="detail-item-label">${w === existing ? 'DÉJÀ EN CAVE' : 'NOUVELLE SAISIE'}</div>
       <div class="dup-row"><span>Millésime</span><b>${w.millesime || '—'}</b></div>
       <div class="dup-row"><span>Région</span><b>${w.region || '—'}</b></div>
+      <div class="dup-row"><span>Cépage</span><b>${w.cepage || '—'}</b></div>
       <div class="dup-row"><span>Couleur</span><b>${w.couleur || '—'}</b></div>
       <div class="dup-row"><span>Quantité</span><b>${w.quantite}</b></div>
       <div class="dup-row"><span>Prix</span><b>${w.prix_achat ? w.prix_achat + ' CHF' : '—'}</b></div>
