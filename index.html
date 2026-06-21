@@ -815,6 +815,44 @@
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+    /* ── Visionneuse photo plein écran ───────────── */
+    .image-viewer {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 300;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      cursor: zoom-out;
+    }
+    .image-viewer img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      cursor: default;
+    }
+    .image-viewer-close {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      color: #FFF;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .image-viewer-close:hover { background: rgba(255,255,255,0.22); }
+    .detail-photo.clickable { cursor: zoom-in; }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation: none !important; transition: none !important; }
     }
@@ -1095,6 +1133,12 @@
       <button class="btn-save" id="btnAiImportParse">Analyser et pré-remplir</button>
     </div>
   </div>
+</div>
+
+<!-- ── VISIONNEUSE PHOTO PLEIN ÉCRAN ─────────────────── -->
+<div class="image-viewer hidden" id="imageViewer">
+  <button class="image-viewer-close" id="imageViewerClose" aria-label="Fermer">✕</button>
+  <img id="imageViewerImg" alt="Étiquette en grand format" />
 </div>
 
 <script>
@@ -1596,7 +1640,7 @@ function openDetail(id) {
   document.getElementById('detailContent').innerHTML = `
     <div class="detail-header">
       ${w.photo_url
-        ? `<div class="detail-photo"><img src="${w.photo_url}" /></div>`
+        ? `<div class="detail-photo clickable" id="detailPhotoZoom"><img src="${w.photo_url}" /></div>`
         : `<div class="detail-photo">${COULEUR_EMOJI[w.couleur] || '🍾'}</div>`
       }
       <div>
@@ -1639,6 +1683,10 @@ function openDetail(id) {
     <button class="btn-delete-full" id="btnDetailDelete">🗑 Archiver tout le stock restant</button>
   `;
 
+  if (w.photo_url) {
+    document.getElementById('detailPhotoZoom').addEventListener('click', () => openImageViewer(w.photo_url));
+  }
+
   document.getElementById('btnDetailEdit').addEventListener('click', () => {
     closeModal('modalDetail');
     openForm(id);
@@ -1672,7 +1720,7 @@ function openArchiveDetail(id) {
   document.getElementById('detailContent').innerHTML = `
     <div class="detail-header">
       ${w.photo_url
-        ? `<div class="detail-photo"><img src="${w.photo_url}" /></div>`
+        ? `<div class="detail-photo clickable" id="detailPhotoZoom"><img src="${w.photo_url}" /></div>`
         : `<div class="detail-photo">${COULEUR_EMOJI[w.couleur] || '🍾'}</div>`
       }
       <div>
@@ -1714,6 +1762,10 @@ function openArchiveDetail(id) {
       <button class="btn-edit" id="btnDeleteArchive" style="background:var(--urgent)">🗑 Supprimer définitivement</button>
     </div>
   `;
+
+  if (w.photo_url) {
+    document.getElementById('detailPhotoZoom').addEventListener('click', () => openImageViewer(w.photo_url));
+  }
 
   document.getElementById('btnRestoreCave').addEventListener('click', async () => {
     if (!confirm(`Remettre "${w.nom}" dans la cave (${w.quantite_bue} bouteille${w.quantite_bue > 1 ? 's' : ''}) ?`)) return;
@@ -2281,6 +2333,26 @@ document.getElementById('btnAiImportParse').addEventListener('click', () => {
 // Fermeture par clic sur l'overlay
 document.getElementById('modalAiImport').addEventListener('click', e => {
   if (e.target === e.currentTarget) closeModal('modalAiImport');
+});
+
+// ── Visionneuse photo plein écran ──────────────────────
+function openImageViewer(url) {
+  document.getElementById('imageViewerImg').src = url;
+  document.getElementById('imageViewer').classList.remove('hidden');
+}
+
+function closeImageViewer() {
+  document.getElementById('imageViewer').classList.add('hidden');
+}
+
+document.getElementById('imageViewer').addEventListener('click', closeImageViewer);
+document.getElementById('imageViewerImg').addEventListener('click', e => e.stopPropagation());
+document.getElementById('imageViewerClose').addEventListener('click', e => {
+  e.stopPropagation();
+  closeImageViewer();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeImageViewer();
 });
 
 // ── Toast ─────────────────────────────────────────────
