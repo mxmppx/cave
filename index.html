@@ -1247,45 +1247,34 @@ function openDetail(id) {
     openForm(id);
   });
 
-  // −1 bouteille : si c'est la dernière, on demande une note avant d'archiver
-  document.getElementById('btnConsume').addEventListener('click', async () => {
+  // −1 bouteille : on archive systématiquement 1 unité avec une note de dégustation
+  document.getElementById('btnConsume').addEventListener('click', () => {
     if (w.quantite <= 0) return;
-    const newQty = w.quantite - 1;
-
-    if (newQty === 0) {
-      closeModal('modalDetail');
-      openArchiveModal(w, 1);
-      return;
-    }
-
-    await db.from('wines').update({ quantite: newQty }).eq('id', id);
-    w.quantite = newQty;
-    showToast('Bouteille consommée 🍷');
     closeModal('modalDetail');
-    renderCave();
+    openArchiveModal(w, 1, w.quantite - 1); // archive 1, garde (quantite - 1) en cave
   });
 
   // Archiver tout le stock restant
   document.getElementById('btnDetailDelete').addEventListener('click', () => {
     closeModal('modalDetail');
-    openArchiveModal(w, w.quantite);
+    openArchiveModal(w, w.quantite, 0); // archive tout, ne garde rien
   });
 
   document.getElementById('modalDetail').classList.remove('hidden');
 }
 
 // ── Archive modal (note de dégustation) ────────────────
-let archiveTarget = null; // { wine, quantiteBue }
+let archiveTarget = null; // { wine, quantiteBue, quantiteRestante }
 
-function openArchiveModal(wine, quantiteBue) {
-  archiveTarget = { wine, quantiteBue };
+function openArchiveModal(wine, quantiteBue, quantiteRestante) {
+  archiveTarget = { wine, quantiteBue, quantiteRestante };
   document.getElementById('archiveNote').value = '';
   document.getElementById('modalArchive').classList.remove('hidden');
 }
 
 async function confirmArchive() {
   if (!archiveTarget) return;
-  const { wine: w, quantiteBue } = archiveTarget;
+  const { wine: w, quantiteBue, quantiteRestante } = archiveTarget;
   const note = document.getElementById('archiveNote').value.trim() || null;
 
   const btn = document.getElementById('btnArchiveConfirm');
@@ -1307,7 +1296,11 @@ async function confirmArchive() {
     created_at: w.created_at,
   });
 
-  await db.from('wines').delete().eq('id', w.id);
+  if (quantiteRestante > 0) {
+    await db.from('wines').update({ quantite: quantiteRestante }).eq('id', w.id);
+  } else {
+    await db.from('wines').delete().eq('id', w.id);
+  }
 
   btn.textContent = 'Archiver';
   btn.disabled = false;
