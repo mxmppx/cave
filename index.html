@@ -359,6 +359,35 @@
       padding: 20px 20px 40px;
       animation: slideUp 0.25s ease;
     }
+    @media (min-width: 700px) {
+      .modal-overlay {
+        align-items: center;
+      }
+      .modal {
+        max-width: 640px;
+        max-height: 88vh;
+        border-radius: 20px;
+        animation: fadeScale 0.2s ease;
+      }
+      #modalForm .modal {
+        max-width: 760px;
+      }
+      .form-grid-desktop {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 20px;
+        align-items: start;
+      }
+      .form-grid-desktop .form-group.span-2 { grid-column: 1 / -1; }
+      .form-group { margin-bottom: 12px; }
+      .form-textarea { min-height: 56px; }
+      .photo-upload { height: 80px; }
+      .modal-title { margin-bottom: 14px; }
+    }
+    @keyframes fadeScale {
+      from { transform: scale(0.97); opacity: 0; }
+      to   { transform: scale(1);    opacity: 1; }
+    }
     @keyframes slideUp {
       from { transform: translateY(100%); opacity: 0; }
       to   { transform: translateY(0);    opacity: 1; }
@@ -691,7 +720,8 @@
     <div class="modal-handle"></div>
     <div class="modal-title" id="formTitle">Ajouter un vin</div>
 
-    <div class="form-group">
+    <div class="form-grid-desktop">
+    <div class="form-group span-2">
       <label class="form-label">Nom / Appellation *</label>
       <input class="form-input" id="fNom" placeholder="Ex : Gevrey-Chambertin 1er Cru" />
     </div>
@@ -716,7 +746,7 @@
       </div>
     </div>
 
-    <div class="form-group">
+    <div class="form-group span-2">
       <label class="form-label">Couleur *</label>
       <div class="couleur-picker" id="couleurPicker">
         <button class="couleur-option" data-c="rouge">
@@ -755,11 +785,11 @@
       <label class="form-label">Prix d'achat (CHF)</label>
       <input class="form-input" id="fPrix" type="number" placeholder="0.00" step="0.01" />
     </div>
-    <div class="form-group">
+    <div class="form-group span-2">
       <label class="form-label">Notes</label>
       <textarea class="form-textarea" id="fNotes" placeholder="Tanins soyeux, nez de fruits rouges…"></textarea>
     </div>
-    <div class="form-group">
+    <div class="form-group span-2">
       <label class="form-label">Photo étiquette</label>
       <label class="photo-upload" id="photoUploadLabel">
         <span class="photo-upload-icon">📷</span>
@@ -767,6 +797,7 @@
         <input type="file" id="fPhoto" accept="image/*" />
         <img id="photoPreview" style="display:none" alt="preview" />
       </label>
+    </div>
     </div>
 
     <div class="form-actions">
@@ -787,8 +818,8 @@
 
 <script>
 // ── CONFIG — remplacez par vos clés Supabase ──────────
-const SUPABASE_URL = 'https://VOTRE_PROJET.supabase.co';
-const SUPABASE_KEY = 'VOTRE_ANON_KEY';
+const SUPABASE_URL = 'https://rtxwaupsjwfmczyopuhk.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_3sIlqi_GerHO1T2A9hHv4A_oFsC48lP';
 // ──────────────────────────────────────────────────────
 
 const { createClient } = supabase;
@@ -801,7 +832,8 @@ let filterSearch = '';
 let editingId = null;
 let selectedCouleur = null;
 let uploadedPhotoFile = null;
-let darkMode = localStorage.getItem('cave-dark') === '1';
+const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+let darkMode = systemPrefersDark.matches; // suit le thème de l'appareil au chargement, pas de persistance
 
 // ── Theme ─────────────────────────────────────────────
 function applyTheme() {
@@ -809,9 +841,16 @@ function applyTheme() {
   document.getElementById('btnTheme').textContent = darkMode ? '☀️' : '🌙';
 }
 applyTheme();
+
+// Bouton = bascule manuelle pour la session en cours uniquement
 document.getElementById('btnTheme').addEventListener('click', () => {
   darkMode = !darkMode;
-  localStorage.setItem('cave-dark', darkMode ? '1' : '0');
+  applyTheme();
+});
+
+// Si l'appareil change de thème en cours de session, on suit
+systemPrefersDark.addEventListener('change', e => {
+  darkMode = e.matches;
   applyTheme();
 });
 
