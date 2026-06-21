@@ -678,6 +678,39 @@
       line-height: 1.6;
       color: var(--text);
     }
+
+    /* ── Duplicate comparison ─────────────────────── */
+    .dup-intro {
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+    .dup-compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .dup-col {
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+    }
+    .dup-col .detail-item-label {
+      color: var(--gold);
+      margin-bottom: 8px;
+    }
+    .dup-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 13px;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .dup-row:last-child { border-bottom: none; }
+    .dup-row span { color: var(--text-muted); }
+    .dup-row b { color: var(--text); text-align: right; }
     .detail-actions {
       display: flex;
       gap: 10px;
@@ -972,6 +1005,20 @@
     <div class="form-actions">
       <button class="btn-cancel" id="btnArchiveCancel">Annuler</button>
       <button class="btn-save" id="btnArchiveConfirm">Archiver</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL : DOUBLON ──────────────────────────────── -->
+<div class="modal-overlay hidden" id="modalDuplicate">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Vin déjà en cave ? 🤔</div>
+    <div id="duplicateContent"></div>
+    <div class="form-actions" style="flex-direction:column;gap:8px;margin-top:18px">
+      <button class="btn-save" id="btnDupMerge" style="flex:none;width:100%">Oui, fusionner les quantités</button>
+      <button class="btn-cancel" id="btnDupSeparate" style="flex:none;width:100%">Non, créer une entrée séparée</button>
+      <button class="btn-delete-full" id="btnDupCancel">Annuler</button>
     </div>
   </div>
 </div>
@@ -1808,6 +1855,40 @@ document.getElementById('btnFormSave').addEventListener('click', async () => {
   if (!nom) { showToast('Le nom est requis'); return; }
   if (!selectedCouleur) { showToast('Sélectionnez une couleur'); return; }
 
+  const payload = buildWinePayload(nom);
+
+  // Détection de doublon uniquement en mode ajout (pas en édition)
+  if (!editingId) {
+    const duplicate = wines.find(w =>
+      w.nom.trim().toLowerCase() === nom.toLowerCase() &&
+      (w.domaine || '').trim().toLowerCase() === (payload.domaine || '').trim().toLowerCase()
+    );
+    if (duplicate) {
+      openDuplicateModal(duplicate, payload);
+      return;
+    }
+  }
+
+  await doSaveWine(payload);
+});
+
+function buildWinePayload(nom) {
+  return {
+    nom,
+    domaine:            document.getElementById('fDomaine').value.trim() || null,
+    millesime:          parseInt(document.getElementById('fMillesime').value) || null,
+    region:             document.getElementById('fRegion').value.trim() || null,
+    pays:               document.getElementById('fPays').value.trim() || 'France',
+    couleur:            selectedCouleur,
+    quantite:           parseInt(document.getElementById('fQuantite').value) || 1,
+    boire_a_partir_de:  parseInt(document.getElementById('fBoireDepuis').value) || null,
+    boire_avant:        parseInt(document.getElementById('fBoireAvant').value) || null,
+    prix_achat:         parseFloat(document.getElementById('fPrix').value) || null,
+    notes:              document.getElementById('fNotes').value.trim() || null,
+  };
+}
+
+async function doSaveWine(payload) {
   const btn = document.getElementById('btnFormSave');
   btn.textContent = 'Enregistrement…';
   btn.disabled = true;
@@ -1824,20 +1905,7 @@ document.getElementById('btnFormSave').addEventListener('click', async () => {
     }
   }
 
-  const payload = {
-    nom,
-    domaine:            document.getElementById('fDomaine').value.trim() || null,
-    millesime:          parseInt(document.getElementById('fMillesime').value) || null,
-    region:             document.getElementById('fRegion').value.trim() || null,
-    pays:               document.getElementById('fPays').value.trim() || 'France',
-    couleur:            selectedCouleur,
-    quantite:           parseInt(document.getElementById('fQuantite').value) || 1,
-    boire_a_partir_de:  parseInt(document.getElementById('fBoireDepuis').value) || null,
-    boire_avant:        parseInt(document.getElementById('fBoireAvant').value) || null,
-    prix_achat:         parseFloat(document.getElementById('fPrix').value) || null,
-    notes:              document.getElementById('fNotes').value.trim() || null,
-    photo_url:          photoUrl,
-  };
+  payload.photo_url = photoUrl;
 
   let err;
   if (editingId) {
@@ -1853,6 +1921,60 @@ document.getElementById('btnFormSave').addEventListener('click', async () => {
   closeModal('modalForm');
   showToast(editingId ? 'Vin modifié ✓' : 'Vin ajouté 🍾');
   await loadWines();
+}
+
+// ── Détection de doublon ────────────────────────────────
+let duplicateContext = null; // { existing, newPayload }
+
+function openDuplicateModal(existing, newPayload) {
+  duplicateContext = { existing, newPayload };
+
+  const fmt = (w) => `
+    <div class="dup-col">
+      <div class="detail-item-label">${w === existing ? 'DÉJÀ EN CAVE' : 'NOUVELLE SAISIE'}</div>
+      <div class="dup-row"><span>Millésime</span><b>${w.millesime || '—'}</b></div>
+      <div class="dup-row"><span>Région</span><b>${w.region || '—'}</b></div>
+      <div class="dup-row"><span>Couleur</span><b>${w.couleur || '—'}</b></div>
+      <div class="dup-row"><span>Quantité</span><b>${w.quantite}</b></div>
+      <div class="dup-row"><span>Prix</span><b>${w.prix_achat ? w.prix_achat + ' CHF' : '—'}</b></div>
+    </div>`;
+
+  document.getElementById('duplicateContent').innerHTML = `
+    <p class="dup-intro">Un vin "<b>${existing.nom}</b>" est déjà dans votre cave. Est-ce le même ?</p>
+    <div class="dup-compare">
+      ${fmt(existing)}
+      ${fmt(newPayload)}
+    </div>
+  `;
+
+  document.getElementById('modalDuplicate').classList.remove('hidden');
+}
+
+document.getElementById('btnDupMerge').addEventListener('click', async () => {
+  if (!duplicateContext) return;
+  const { existing, newPayload } = duplicateContext;
+  const newQty = (existing.quantite || 0) + (newPayload.quantite || 0);
+
+  closeModal('modalDuplicate');
+  closeModal('modalForm');
+
+  await db.from('wines').update({ quantite: newQty }).eq('id', existing.id);
+  showToast(`Quantité mise à jour : ${newQty} bouteilles`);
+  duplicateContext = null;
+  await loadWines();
+});
+
+document.getElementById('btnDupSeparate').addEventListener('click', async () => {
+  if (!duplicateContext) return;
+  const { newPayload } = duplicateContext;
+  closeModal('modalDuplicate');
+  await doSaveWine(newPayload);
+  duplicateContext = null;
+});
+
+document.getElementById('btnDupCancel').addEventListener('click', () => {
+  closeModal('modalDuplicate');
+  duplicateContext = null;
 });
 
 // Delete
@@ -1869,7 +1991,7 @@ document.getElementById('btnDelete').addEventListener('click', async () => {
 document.getElementById('btnFormCancel').addEventListener('click', () => closeModal('modalForm'));
 
 // Close on overlay click
-['modalForm','modalDetail','modalArchive'].forEach(id => {
+['modalForm','modalDetail','modalArchive','modalDuplicate'].forEach(id => {
   document.getElementById(id).addEventListener('click', e => {
     if (e.target === e.currentTarget) closeModal(id);
   });
@@ -1877,9 +1999,12 @@ document.getElementById('btnFormCancel').addEventListener('click', () => closeMo
 
 function closeModal(id) {
   document.getElementById(id).classList.add('hidden');
-  editingId = null;
-  uploadedPhotoFile = null;
+  if (id === 'modalForm') {
+    editingId = null;
+    uploadedPhotoFile = null;
+  }
   if (id === 'modalArchive') archiveTarget = null;
+  if (id === 'modalDuplicate') duplicateContext = null;
 }
 
 document.getElementById('btnAdd').addEventListener('click', () => openForm());
