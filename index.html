@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cave à vin</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     /* ── Tokens ──────────────────────────────────── */
     :root {
@@ -238,6 +239,26 @@
       display: flex;
       gap: 10px;
       margin-bottom: 16px;
+    }
+    .sort-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .sort-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .sort-select {
+      flex: 1;
+      max-width: 260px;
+      height: 36px;
+      padding: 0 30px 0 12px;
+      font-size: 13px;
     }
     .search-input {
       flex: 1;
@@ -498,6 +519,26 @@
     }
     .couleur-dot { width: 18px; height: 18px; border-radius: 50%; }
 
+    /* ── Star picker ─────────────────────────────── */
+    .star-picker {
+      display: flex;
+      gap: 6px;
+    }
+    .star-btn {
+      font-size: 30px;
+      line-height: 1;
+      color: var(--border);
+      transition: color 0.15s, transform 0.1s;
+    }
+    .star-btn:hover { transform: scale(1.1); }
+    .star-btn.active { color: var(--gold); }
+    .stars-display {
+      color: var(--gold);
+      font-size: 13px;
+      letter-spacing: 1px;
+      margin-top: 2px;
+    }
+
     /* ── Photo upload ────────────────────────────── */
     .photo-upload {
       width: 100%;
@@ -520,6 +561,27 @@
     .photo-upload img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
     .photo-upload input { display: none; }
     .photo-upload-icon { font-size: 28px; }
+
+    .btn-scan {
+      width: 100%;
+      height: 40px;
+      margin-top: 8px;
+      border-radius: var(--radius-sm);
+      border: 1.5px dashed var(--gold);
+      background: transparent;
+      color: var(--gold);
+      font-size: 13px;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+    .btn-scan:hover { background: var(--surface2); }
+    .btn-scan:disabled { opacity: 0.5; cursor: default; }
+    .scan-status {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+    }
 
     /* ── Form actions ────────────────────────────── */
     .form-actions {
@@ -734,6 +796,18 @@
       <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
       <button class="filter-chip" data-filter="fortifié">🍶 Fortifié</button>
     </div>
+    <div class="sort-row">
+      <span class="sort-label">Trier par</span>
+      <select class="form-select sort-select" id="sortSelect">
+        <option value="echeance">Échéance</option>
+        <option value="millesime_desc">Millésime (récent → ancien)</option>
+        <option value="millesime_asc">Millésime (ancien → récent)</option>
+        <option value="prix_desc">Prix (élevé → faible)</option>
+        <option value="prix_asc">Prix (faible → élevé)</option>
+        <option value="ajout_desc">Date d'ajout (récent)</option>
+        <option value="nom">Nom (A → Z)</option>
+      </select>
+    </div>
     <div class="wine-list" id="wineList">
       <div class="loading">Chargement…</div>
     </div>
@@ -755,6 +829,14 @@
 
   <!-- ── TAB : HISTORIQUE ───────────────────────── -->
   <div class="section hidden" id="tab-historique">
+    <div class="stat-grid" id="historiqueStats" style="margin-bottom:16px"></div>
+    <div class="search-row">
+      <input class="search-input" type="search" placeholder="Rechercher..." id="historiqueSearch" />
+    </div>
+    <div class="filters">
+      <button class="filter-chip active" data-coup-de-coeur="tous">Tous</button>
+      <button class="filter-chip" data-coup-de-coeur="favoris">⭐ Coups de cœur</button>
+    </div>
     <div class="wine-list" id="historiqueList">
       <div class="loading">Chargement…</div>
     </div>
@@ -847,6 +929,8 @@
         <input type="file" id="fPhoto" accept="image/*" />
         <img id="photoPreview" style="display:none" alt="preview" />
       </label>
+      <button class="btn-scan hidden" id="btnScanLabel" type="button">🔍 Scanner le texte de l'étiquette</button>
+      <div class="scan-status hidden" id="scanStatus"></div>
     </div>
     </div>
 
@@ -871,6 +955,16 @@
   <div class="modal" style="max-width:420px">
     <div class="modal-handle"></div>
     <div class="modal-title">Comment c'était ? 🍷</div>
+    <div class="form-group">
+      <label class="form-label">Note</label>
+      <div class="star-picker" id="starPicker">
+        <button class="star-btn" data-star="1">★</button>
+        <button class="star-btn" data-star="2">★</button>
+        <button class="star-btn" data-star="3">★</button>
+        <button class="star-btn" data-star="4">★</button>
+        <button class="star-btn" data-star="5">★</button>
+      </div>
+    </div>
     <div class="form-group">
       <label class="form-label">Note de dégustation (optionnel)</label>
       <textarea class="form-textarea" id="archiveNote" placeholder="Très bon, à racheter ! Tanins encore un peu fermes…"></textarea>
@@ -985,6 +1079,41 @@ function photoOrEmoji(w, size = 52) {
 }
 
 // ── Render cave ───────────────────────────────────────
+let sortMode = 'echeance';
+
+function getDejaBuCount(w) {
+  // Compte les bouteilles archivées du même nom + domaine (référence identique)
+  return archive
+    .filter(a => a.nom === w.nom && (a.domaine || '') === (w.domaine || ''))
+    .reduce((s, a) => s + (a.quantite_bue || 0), 0);
+}
+
+function sortWines(list) {
+  const sorted = [...list];
+  switch (sortMode) {
+    case 'millesime_desc':
+      return sorted.sort((a,b) => (b.millesime || 0) - (a.millesime || 0));
+    case 'millesime_asc':
+      return sorted.sort((a,b) => (a.millesime || 9999) - (b.millesime || 9999));
+    case 'prix_desc':
+      return sorted.sort((a,b) => (b.prix_achat || 0) - (a.prix_achat || 0));
+    case 'prix_asc':
+      return sorted.sort((a,b) => (a.prix_achat || 0) - (b.prix_achat || 0));
+    case 'ajout_desc':
+      return sorted.sort((a,b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    case 'nom':
+      return sorted.sort((a,b) => a.nom.localeCompare(b.nom));
+    case 'echeance':
+    default:
+      return sorted.sort((a,b) => (a.boire_avant ?? 9999) - (b.boire_avant ?? 9999));
+  }
+}
+
+document.getElementById('sortSelect').addEventListener('change', e => {
+  sortMode = e.target.value;
+  renderCave();
+});
+
 function renderCave() {
   const list = document.getElementById('wineList');
   let filtered = wines.filter(w => {
@@ -996,6 +1125,8 @@ function renderCave() {
     return matchCouleur && matchSearch;
   });
 
+  filtered = sortWines(filtered);
+
   if (!filtered.length) {
     list.innerHTML = `<div class="empty"><div class="empty-icon">🍾</div><h3>Aucun vin trouvé</h3><p>Ajoutez votre première bouteille !</p></div>`;
     return;
@@ -1004,12 +1135,14 @@ function renderCave() {
   list.innerHTML = filtered.map(w => {
     const statut = getStatut(w);
     const sub = [w.domaine, w.millesime, w.region].filter(Boolean).join(' · ');
+    const dejaBu = getDejaBuCount(w);
     return `
       <div class="wine-card" data-id="${w.id}">
         ${photoOrEmoji(w)}
         <div class="wine-info">
           <div class="wine-name">${w.nom}</div>
           <div class="wine-sub">${sub || '—'}</div>
+          ${dejaBu > 0 ? `<div class="wine-sub" style="font-size:11px;color:var(--gold);margin-top:2px">↻ déjà bu ${dejaBu}×</div>` : ''}
         </div>
         <div class="wine-right">
           ${statutBadge(statut)}
@@ -1140,6 +1273,8 @@ function renderABoire() {
 
 // ── Historique / Archive ───────────────────────────────
 let archive = [];
+let historiqueSearch = '';
+let historiqueFilter = 'tous';
 
 async function loadArchive() {
   const list = document.getElementById('historiqueList');
@@ -1147,16 +1282,76 @@ async function loadArchive() {
   const { data, error } = await db.from('wines_archive').select('*').order('date_consommation', { ascending: false });
   if (error) { console.error(error); list.innerHTML = `<div class="loading">Erreur de chargement</div>`; return; }
   archive = data || [];
+  renderHistoriqueStats();
   renderHistorique();
+}
+
+function starsHtml(n) {
+  if (!n) return '';
+  return `<div class="stars-display">${'★'.repeat(n)}${'☆'.repeat(5 - n)}</div>`;
+}
+
+function renderHistoriqueStats() {
+  const grid = document.getElementById('historiqueStats');
+  if (!archive.length) { grid.innerHTML = ''; return; }
+
+  const thisYear = new Date().getFullYear();
+  const buCetteAnnee = archive.filter(w => w.date_consommation && new Date(w.date_consommation).getFullYear() === thisYear);
+  const totalBuCetteAnnee = buCetteAnnee.reduce((s, w) => s + (w.quantite_bue || 0), 0);
+  const valeurConsommee = archive.reduce((s, w) => s + (w.prix_achat || 0) * (w.quantite_bue || 0), 0);
+
+  const couleurCounts = {};
+  archive.forEach(w => {
+    const c = w.couleur || 'autre';
+    couleurCounts[c] = (couleurCounts[c] || 0) + (w.quantite_bue || 0);
+  });
+  const couleurPref = Object.entries(couleurCounts).sort((a,b) => b[1]-a[1])[0];
+
+  const favoris = archive.filter(w => w.note_sur_5 >= 4).length;
+
+  grid.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Bus cette année</div>
+      <div class="stat-value gold">${totalBuCetteAnnee}</div>
+      <div class="stat-sub">${thisYear}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Valeur consommée</div>
+      <div class="stat-value">${valeurConsommee ? valeurConsommee.toLocaleString('fr-CH', {maximumFractionDigits:0}) : '—'}</div>
+      <div class="stat-sub">${valeurConsommee ? 'CHF' : 'prix non saisis'}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Couleur préférée</div>
+      <div class="stat-value" style="font-size:22px">${couleurPref ? (COULEUR_EMOJI[couleurPref[0]] || '🍾') + ' ' + couleurPref[0] : '—'}</div>
+      <div class="stat-sub">${couleurPref ? couleurPref[1] + ' btl bues' : ''}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Coups de cœur</div>
+      <div class="stat-value green">${favoris}</div>
+      <div class="stat-sub">notés 4★ ou 5★</div>
+    </div>
+  `;
 }
 
 function renderHistorique() {
   const list = document.getElementById('historiqueList');
-  if (!archive.length) {
-    list.innerHTML = `<div class="empty"><div class="empty-icon">📖</div><h3>Aucun vin bu pour l'instant</h3><p>Les vins consommés apparaîtront ici.</p></div>`;
+
+  let filtered = archive.filter(w => {
+    const matchFavoris = historiqueFilter === 'tous' || (w.note_sur_5 >= 4);
+    const q = historiqueSearch.toLowerCase();
+    const matchSearch = !q || w.nom.toLowerCase().includes(q)
+      || (w.domaine || '').toLowerCase().includes(q)
+      || (w.region || '').toLowerCase().includes(q)
+      || (w.note_degustation || '').toLowerCase().includes(q);
+    return matchFavoris && matchSearch;
+  });
+
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">📖</div><h3>${archive.length ? 'Aucun résultat' : 'Aucun vin bu pour l\\'instant'}</h3><p>${archive.length ? 'Essayez une autre recherche.' : 'Les vins consommés apparaîtront ici.'}</p></div>`;
     return;
   }
-  list.innerHTML = archive.map(w => {
+
+  list.innerHTML = filtered.map(w => {
     const sub = [w.domaine, w.millesime, w.region].filter(Boolean).join(' · ');
     const date = w.date_consommation
       ? new Date(w.date_consommation).toLocaleDateString('fr-CH', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -1167,6 +1362,7 @@ function renderHistorique() {
         <div class="wine-info">
           <div class="wine-name">${w.nom}</div>
           <div class="wine-sub">${sub || '—'}</div>
+          ${starsHtml(w.note_sur_5)}
           ${w.note_degustation ? `<div class="wine-sub" style="font-style:italic;margin-top:2px">💬 ${w.note_degustation}</div>` : ''}
         </div>
         <div class="wine-right">
@@ -1175,7 +1371,26 @@ function renderHistorique() {
         </div>
       </div>`;
   }).join('');
+
+  list.querySelectorAll('.archive-card').forEach(card => {
+    card.addEventListener('click', () => openArchiveDetail(card.dataset.id));
+  });
 }
+
+document.getElementById('historiqueSearch').addEventListener('input', e => {
+  historiqueSearch = e.target.value;
+  renderHistorique();
+});
+
+document.querySelectorAll('[data-coup-de-coeur]').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('[data-coup-de-coeur]').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    historiqueFilter = chip.dataset.coupDeCoeur;
+    renderHistorique();
+  });
+});
+
 document.getElementById('colorFilters').addEventListener('click', e => {
   const chip = e.target.closest('.filter-chip');
   if (!chip) return;
@@ -1263,14 +1478,117 @@ function openDetail(id) {
   document.getElementById('modalDetail').classList.remove('hidden');
 }
 
+// ── Détail d'un vin archivé ─────────────────────────────
+function openArchiveDetail(id) {
+  const w = archive.find(x => x.id === id);
+  if (!w) return;
+
+  const date = w.date_consommation
+    ? new Date(w.date_consommation).toLocaleDateString('fr-CH', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '—';
+
+  document.getElementById('detailContent').innerHTML = `
+    <div class="detail-header">
+      ${w.photo_url
+        ? `<div class="detail-photo"><img src="${w.photo_url}" /></div>`
+        : `<div class="detail-photo">${COULEUR_EMOJI[w.couleur] || '🍾'}</div>`
+      }
+      <div>
+        <div class="detail-title">${w.nom}</div>
+        <div class="detail-sub">${[w.domaine, w.region, w.pays].filter(Boolean).join(' · ')}</div>
+        ${starsHtml(w.note_sur_5) ? `<div style="margin-top:8px">${starsHtml(w.note_sur_5)}</div>` : ''}
+      </div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-item">
+        <div class="detail-item-label">Millésime</div>
+        <div class="detail-item-value">${w.millesime || '—'}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-item-label">Couleur</div>
+        <div class="detail-item-value" style="text-transform:capitalize">${COULEUR_EMOJI[w.couleur] || ''} ${w.couleur || '—'}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-item-label">Quantité bue</div>
+        <div class="detail-item-value">${w.quantite_bue} bouteille${w.quantite_bue > 1 ? 's' : ''}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-item-label">Prix unitaire</div>
+        <div class="detail-item-value">${w.prix_achat ? w.prix_achat.toLocaleString('fr-CH') + ' CHF' : '—'}</div>
+      </div>
+      <div class="detail-item" style="grid-column:1/-1">
+        <div class="detail-item-label">Bu le</div>
+        <div class="detail-item-value">${date}</div>
+      </div>
+    </div>
+    ${w.notes ? `<div class="detail-notes">📝 Notes d'origine : ${w.notes}</div>` : ''}
+    ${w.note_degustation ? `<div class="detail-notes">💬 ${w.note_degustation}</div>` : ''}
+    <div class="detail-actions">
+      <button class="btn-consume" id="btnRestoreCave">↩ Remettre en cave</button>
+      <button class="btn-edit" id="btnDeleteArchive" style="background:var(--urgent)">🗑 Supprimer définitivement</button>
+    </div>
+  `;
+
+  document.getElementById('btnRestoreCave').addEventListener('click', async () => {
+    if (!confirm(`Remettre "${w.nom}" dans la cave (${w.quantite_bue} bouteille${w.quantite_bue > 1 ? 's' : ''}) ?`)) return;
+
+    await db.from('wines').insert({
+      nom: w.nom,
+      domaine: w.domaine,
+      millesime: w.millesime,
+      region: w.region,
+      pays: w.pays,
+      couleur: w.couleur,
+      prix_achat: w.prix_achat,
+      quantite: w.quantite_bue,
+      notes: w.notes,
+      photo_url: w.photo_url,
+    });
+    await db.from('wines_archive').delete().eq('id', w.id);
+
+    closeModal('modalDetail');
+    showToast('Vin remis en cave 🍷');
+    await loadWines();
+    await loadArchive();
+  });
+
+  document.getElementById('btnDeleteArchive').addEventListener('click', async () => {
+    if (!confirm(`Supprimer définitivement "${w.nom}" de l'historique ? Cette action est irréversible.`)) return;
+    await db.from('wines_archive').delete().eq('id', w.id);
+    closeModal('modalDetail');
+    showToast('Entrée supprimée de l\'historique');
+    await loadArchive();
+    renderCave(); // met à jour le compteur "déjà bu"
+  });
+
+  document.getElementById('modalDetail').classList.remove('hidden');
+}
+
 // ── Archive modal (note de dégustation) ────────────────
 let archiveTarget = null; // { wine, quantiteBue, quantiteRestante }
+let selectedStars = 0;
 
 function openArchiveModal(wine, quantiteBue, quantiteRestante) {
   archiveTarget = { wine, quantiteBue, quantiteRestante };
+  selectedStars = 0;
   document.getElementById('archiveNote').value = '';
+  updateStarDisplay();
   document.getElementById('modalArchive').classList.remove('hidden');
 }
+
+function updateStarDisplay() {
+  document.querySelectorAll('.star-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.star) <= selectedStars);
+  });
+}
+
+document.getElementById('starPicker').addEventListener('click', e => {
+  const btn = e.target.closest('.star-btn');
+  if (!btn) return;
+  const val = parseInt(btn.dataset.star);
+  selectedStars = (selectedStars === val) ? 0 : val; // re-clic pour annuler
+  updateStarDisplay();
+});
 
 async function confirmArchive() {
   if (!archiveTarget) return;
@@ -1293,6 +1611,7 @@ async function confirmArchive() {
     photo_url: w.photo_url,
     notes: w.notes,
     note_degustation: note,
+    note_sur_5: selectedStars > 0 ? selectedStars : null,
     created_at: w.created_at,
   });
 
@@ -1327,6 +1646,9 @@ function openForm(id = null) {
   document.getElementById('btnDelete').classList.toggle('hidden', !id);
   document.getElementById('photoPreview').style.display = 'none';
   document.getElementById('photoUploadText').textContent = 'Appuyer pour ajouter';
+  document.getElementById('scanStatus').classList.add('hidden');
+  document.getElementById('scanStatus').textContent = '';
+  document.getElementById('btnScanLabel').classList.add('hidden');
 
   const fields = { fNom:'', fDomaine:'', fMillesime:'', fRegion:'', fPays:'France', fQuantite:1, fBoireDepuis:'', fBoireAvant:'', fPrix:'', fNotes:'' };
 
@@ -1349,6 +1671,7 @@ function openForm(id = null) {
         document.getElementById('photoPreview').src = w.photo_url;
         document.getElementById('photoPreview').style.display = 'block';
         document.getElementById('photoUploadText').textContent = '';
+        document.getElementById('btnScanLabel').classList.remove('hidden');
       }
     }
   }
@@ -1380,9 +1703,82 @@ document.getElementById('fPhoto').addEventListener('change', e => {
     document.getElementById('photoPreview').src = ev.target.result;
     document.getElementById('photoPreview').style.display = 'block';
     document.getElementById('photoUploadText').textContent = '';
+    document.getElementById('btnScanLabel').classList.remove('hidden');
   };
   reader.readAsDataURL(file);
 });
+
+// ── Scan d'étiquette (OCR gratuit via Tesseract.js) ────
+// Best-effort : extrait le texte brut puis tente de repérer millésime / mots-clés.
+// Résultat indicatif — à corriger manuellement si besoin.
+document.getElementById('btnScanLabel').addEventListener('click', async () => {
+  const btn = document.getElementById('btnScanLabel');
+  const statusEl = document.getElementById('scanStatus');
+  const imgSrc = document.getElementById('photoPreview').src;
+  if (!imgSrc) return;
+
+  btn.disabled = true;
+  btn.textContent = '🔍 Lecture en cours…';
+  statusEl.classList.remove('hidden');
+  statusEl.textContent = 'Analyse de l\'étiquette… (peut prendre 10-20s)';
+
+  try {
+    const result = await Tesseract.recognize(imgSrc, 'fra+eng', {
+      logger: m => {
+        if (m.status === 'recognizing text') {
+          statusEl.textContent = `Analyse en cours… ${Math.round(m.progress * 100)}%`;
+        }
+      }
+    });
+    const text = result.data.text || '';
+    applyOcrGuesses(text);
+    statusEl.textContent = '✓ Texte extrait — vérifiez et complétez les champs ci-dessus.';
+  } catch (err) {
+    console.error('OCR error:', err);
+    statusEl.textContent = 'Lecture impossible, complétez manuellement.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Scanner le texte de l\'étiquette';
+  }
+});
+
+function applyOcrGuesses(rawText) {
+  const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+  const fullText = rawText.replace(/\s+/g, ' ');
+
+  // Millésime : un nombre à 4 chiffres plausible (1950-2030)
+  const yearMatch = fullText.match(/\b(19[5-9]\d|20[0-3]\d)\b/);
+  if (yearMatch && !document.getElementById('fMillesime').value) {
+    document.getElementById('fMillesime').value = yearMatch[1];
+  }
+
+  // Régions/appellations françaises courantes — best-effort, liste non exhaustive
+  const regions = [
+    'Bordeaux','Bourgogne','Champagne','Loire','Rhône','Alsace','Provence',
+    'Languedoc','Beaujolais','Jura','Savoie','Côtes du Rhône','Médoc',
+    'Saint-Émilion','Chablis','Sancerre','Chianti','Toscane','Piémont',
+    'Rioja','Douro','Valais','Vaud','Genève','Neuchâtel','Tessin'
+  ];
+  const foundRegion = regions.find(r => fullText.toLowerCase().includes(r.toLowerCase()));
+  if (foundRegion && !document.getElementById('fRegion').value) {
+    document.getElementById('fRegion').value = foundRegion;
+  }
+
+  // Pays courants
+  const pays = ['France','Italie','Espagne','Suisse','Portugal','Allemagne','Argentine','Chili','États-Unis'];
+  const foundPays = pays.find(p => fullText.toLowerCase().includes(p.toLowerCase()));
+  if (foundPays) {
+    document.getElementById('fPays').value = foundPays;
+  }
+
+  // Nom : on prend la ligne la plus longue parmi les 3 premières (souvent le nom du domaine/cuvée en plus gros sur l'étiquette)
+  if (!document.getElementById('fNom').value && lines.length) {
+    const candidate = lines.slice(0, 4).sort((a,b) => b.length - a.length)[0];
+    if (candidate && candidate.length > 3) {
+      document.getElementById('fNom').value = candidate;
+    }
+  }
+}
 
 // Save
 document.getElementById('btnFormSave').addEventListener('click', async () => {
@@ -1476,6 +1872,11 @@ function showToast(msg) {
 
 // ── Init ──────────────────────────────────────────────
 loadWines();
+// Charge l'archive en arrière-plan (silencieux) pour le compteur "déjà bu" dans Cave
+db.from('wines_archive').select('*').order('date_consommation', { ascending: false })
+  .then(({ data, error }) => {
+    if (!error && data) { archive = data; renderCave(); }
+  });
 </script>
 </body>
 </html>
