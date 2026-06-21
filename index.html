@@ -1649,6 +1649,7 @@ function openForm(id = null) {
   document.getElementById('scanStatus').classList.add('hidden');
   document.getElementById('scanStatus').textContent = '';
   document.getElementById('btnScanLabel').classList.add('hidden');
+  document.getElementById('fPhoto').value = ''; // reset pour garantir le déclenchement de 'change' même en ressélectionnant le même fichier
 
   const fields = { fNom:'', fDomaine:'', fMillesime:'', fRegion:'', fPays:'France', fQuantite:1, fBoireDepuis:'', fBoireAvant:'', fPrix:'', fNotes:'' };
 
@@ -1697,15 +1698,36 @@ document.getElementById('couleurPicker').addEventListener('click', e => {
 document.getElementById('fPhoto').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    showToast('Format de fichier non reconnu comme image');
+    return;
+  }
+
   uploadedPhotoFile = file;
   const reader = new FileReader();
+
   reader.onload = ev => {
-    document.getElementById('photoPreview').src = ev.target.result;
-    document.getElementById('photoPreview').style.display = 'block';
+    const preview = document.getElementById('photoPreview');
+    preview.src = ev.target.result;
+    preview.style.display = 'block';
     document.getElementById('photoUploadText').textContent = '';
     document.getElementById('btnScanLabel').classList.remove('hidden');
   };
-  reader.readAsDataURL(file);
+
+  reader.onerror = () => {
+    console.error('FileReader error:', reader.error);
+    showToast('Impossible de lire cette image, réessayez');
+    uploadedPhotoFile = null;
+  };
+
+  try {
+    reader.readAsDataURL(file);
+  } catch (err) {
+    console.error('readAsDataURL threw:', err);
+    showToast('Erreur lors du chargement de la photo');
+    uploadedPhotoFile = null;
+  }
 });
 
 // ── Scan d'étiquette (OCR gratuit via Tesseract.js) ────
