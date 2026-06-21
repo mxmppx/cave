@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Cave à vin</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -290,7 +290,7 @@
       border: 1.5px solid var(--border);
       background: var(--surface);
       color: var(--text);
-      font-size: 14px;
+      font-size: 16px;
       outline: none;
       transition: border-color 0.15s;
     }
@@ -524,7 +524,7 @@
       border: 1.5px solid var(--border);
       background: var(--surface);
       color: var(--text);
-      font-size: 15px;
+      font-size: 16px;
       outline: none;
       transition: border-color 0.15s;
       -webkit-appearance: none;
@@ -834,13 +834,17 @@
       background: var(--text);
       color: var(--bg);
       padding: 10px 20px;
-      border-radius: 99px;
+      border-radius: 16px;
       font-size: 13px;
       font-weight: 600;
       opacity: 0;
       transition: all 0.25s;
       z-index: 200;
-      white-space: nowrap;
+      max-width: calc(100vw - 48px);
+      width: max-content;
+      text-align: center;
+      white-space: normal;
+      line-height: 1.4;
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
@@ -2287,7 +2291,7 @@ Réponds avec EXACTEMENT ces 9 lignes, dans cet ordre, rien d'autre.`;
 document.getElementById('btnCopyPrompt').addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText(AI_IMPORT_PROMPT);
-    showToast('Prompt copié — colle-le dans ton IA avec une photo de l’étiquette 📋');
+    showToast('Prompt copié 📋');
   } catch (err) {
     console.error('Clipboard error:', err);
     showToast('Impossible de copier automatiquement, copie le texte manuellement');
