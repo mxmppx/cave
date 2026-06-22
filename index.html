@@ -234,14 +234,14 @@
       display: flex;
       gap: 7px;
       overflow-x: auto;
-      padding-bottom: 12px;
-      margin-bottom: 4px;
+      padding-bottom: 8px;
+      margin-bottom: 2px;
       scrollbar-width: none;
     }
     .filters::-webkit-scrollbar { display: none; }
     .filter-chip {
       flex-shrink: 0;
-      padding: 6px 14px;
+      padding: 5px 12px;
       border-radius: 99px;
       font-size: 12px;
       font-weight: 600;
@@ -283,26 +283,37 @@
       transition: background 0.15s;
     }
     .btn-ai-action:hover { background: var(--surface2); }
+    .filters-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    @media (min-width: 560px) {
+      .filters-grid { grid-template-columns: repeat(4, 1fr); }
+    }
     .sort-row {
       display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 16px;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
     }
     .sort-label {
-      font-size: 12px;
-      font-weight: 600;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
       color: var(--text-muted);
       white-space: nowrap;
-      flex-shrink: 0;
     }
     .sort-select {
-      flex: 1;
-      max-width: 260px;
+      width: 100%;
+      max-width: none;
       height: auto;
-      padding: 8px 38px 8px 12px;
-      font-size: 13px;
-      background-position: right 12px center;
+      padding: 7px 28px 7px 10px;
+      font-size: 12px;
+      background-position: right 8px center;
+      background-size: 10px;
     }
     .search-input {
       flex: 1;
@@ -953,6 +964,7 @@
       <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
       <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
     </div>
+    <div class="filters-grid">
     <div class="sort-row">
       <span class="sort-label">Trier par</span>
       <select class="form-select sort-select" id="sortSelect">
@@ -977,6 +989,13 @@
         <option value="tous">Toutes les régions</option>
       </select>
     </div>
+    <div class="sort-row">
+      <span class="sort-label">Pays</span>
+      <select class="form-select sort-select" id="paysFilterSelect">
+        <option value="tous">Tous les pays</option>
+      </select>
+    </div>
+    </div>
     <div class="wine-list" id="wineList">
       <div class="loading">Chargement…</div>
     </div>
@@ -991,6 +1010,7 @@
       <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
       <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
     </div>
+    <div class="filters-grid">
     <div class="sort-row">
       <span class="sort-label">Cépage</span>
       <select class="form-select sort-select" id="statsCepageFilterSelect">
@@ -1002,6 +1022,13 @@
       <select class="form-select sort-select" id="statsRegionFilterSelect">
         <option value="tous">Toutes les régions</option>
       </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">Pays</span>
+      <select class="form-select sort-select" id="statsPaysFilterSelect">
+        <option value="tous">Tous les pays</option>
+      </select>
+    </div>
     </div>
     <div class="stat-grid" id="statsGrid">
       <div class="loading" style="grid-column:1/-1">Chargement…</div>
@@ -1031,6 +1058,7 @@
       <button class="filter-chip active" data-coup-de-coeur="tous">Tous</button>
       <button class="filter-chip" data-coup-de-coeur="favoris">⭐ Coups de cœur</button>
     </div>
+    <div class="filters-grid">
     <div class="sort-row">
       <span class="sort-label">Trier par</span>
       <select class="form-select sort-select" id="historiqueSortSelect">
@@ -1054,6 +1082,13 @@
       <select class="form-select sort-select" id="historiqueRegionFilterSelect">
         <option value="tous">Toutes les régions</option>
       </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">Pays</span>
+      <select class="form-select sort-select" id="historiquePaysFilterSelect">
+        <option value="tous">Tous les pays</option>
+      </select>
+    </div>
     </div>
     <div class="stat-grid" id="historiqueStats" style="margin-bottom:16px"></div>
     <div class="wine-list" id="historiqueList">
@@ -1405,6 +1440,12 @@ document.getElementById('regionFilterSelect').addEventListener('change', e => {
   renderCave();
 });
 
+let paysFilter = 'tous';
+document.getElementById('paysFilterSelect').addEventListener('change', e => {
+  paysFilter = e.target.value;
+  renderCave();
+});
+
 // Découpe un champ cépage en cépages individuels (gère virgule, slash, "et", "&")
 function splitCepages(cepageStr) {
   if (!cepageStr) return [];
@@ -1448,21 +1489,38 @@ function updateRegionFilterOptions() {
   }
 }
 
+function updatePaysFilterOptions() {
+  const select = document.getElementById('paysFilterSelect');
+  const paysList = [...new Set(wines.map(w => w.pays).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Tous les pays</option>` +
+    paysList.map(p => `<option value="${p}">${p}</option>`).join('');
+
+  if (paysList.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    paysFilter = 'tous';
+  }
+}
+
 function renderCave() {
   updateCepageFilterOptions();
   updateRegionFilterOptions();
+  updatePaysFilterOptions();
 
   const list = document.getElementById('wineList');
   let filtered = wines.filter(w => {
     const matchCouleur = filterCouleur === 'tous' || w.couleur === filterCouleur;
     const matchCepage = cepageFilter === 'tous' || splitCepages(w.cepage).includes(cepageFilter);
     const matchRegion = regionFilter === 'tous' || w.region === regionFilter;
+    const matchPays = paysFilter === 'tous' || w.pays === paysFilter;
     const q = filterSearch.toLowerCase();
     const matchSearch = !q || w.nom.toLowerCase().includes(q)
       || (w.domaine || '').toLowerCase().includes(q)
       || (w.region || '').toLowerCase().includes(q)
       || (w.cepage || '').toLowerCase().includes(q);
-    return matchCouleur && matchCepage && matchRegion && matchSearch;
+    return matchCouleur && matchCepage && matchRegion && matchPays && matchSearch;
   });
 
   filtered = sortWines(filtered);
@@ -1500,6 +1558,7 @@ function renderCave() {
 let statsColorFilter = 'tous';
 let statsCepageFilter = 'tous';
 let statsRegionFilter = 'tous';
+let statsPaysFilter = 'tous';
 
 document.getElementById('statsColorFilters').addEventListener('click', e => {
   const chip = e.target.closest('.filter-chip');
@@ -1520,6 +1579,11 @@ document.getElementById('statsRegionFilterSelect').addEventListener('change', e 
   renderStats();
 });
 
+document.getElementById('statsPaysFilterSelect').addEventListener('change', e => {
+  statsPaysFilter = e.target.value;
+  renderStats();
+});
+
 function updateStatsFilterOptions() {
   const cepageSelect = document.getElementById('statsCepageFilterSelect');
   const allCepages = new Set();
@@ -1536,6 +1600,13 @@ function updateStatsFilterOptions() {
   regionSelect.innerHTML = `<option value="tous">Toutes les régions</option>` +
     regionsAvail.map(r => `<option value="${r}">${r}</option>`).join('');
   if (regionsAvail.includes(prevRegion)) { regionSelect.value = prevRegion; } else { statsRegionFilter = 'tous'; }
+
+  const paysSelect = document.getElementById('statsPaysFilterSelect');
+  const paysAvail = [...new Set(wines.map(w => w.pays).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const prevPays = paysSelect.value;
+  paysSelect.innerHTML = `<option value="tous">Tous les pays</option>` +
+    paysAvail.map(p => `<option value="${p}">${p}</option>`).join('');
+  if (paysAvail.includes(prevPays)) { paysSelect.value = prevPays; } else { statsPaysFilter = 'tous'; }
 }
 
 function renderStats() {
@@ -1547,7 +1618,8 @@ function renderStats() {
     const matchCouleur = statsColorFilter === 'tous' || w.couleur === statsColorFilter;
     const matchCepage = statsCepageFilter === 'tous' || splitCepages(w.cepage).includes(statsCepageFilter);
     const matchRegion = statsRegionFilter === 'tous' || w.region === statsRegionFilter;
-    return matchCouleur && matchCepage && matchRegion;
+    const matchPays = statsPaysFilter === 'tous' || w.pays === statsPaysFilter;
+    return matchCouleur && matchCepage && matchRegion && matchPays;
   });
 
   if (!filteredWines.length) {
@@ -1687,6 +1759,7 @@ let historiqueSearch = '';
 let historiqueFilter = 'tous';
 let historiqueCepageFilter = 'tous';
 let historiqueRegionFilter = 'tous';
+let historiquePaysFilter = 'tous';
 let historiqueCouleurFilter = 'tous';
 let historiqueSortMode = 'bu_desc';
 
@@ -1738,6 +1811,12 @@ document.getElementById('historiqueRegionFilterSelect').addEventListener('change
   renderHistorique();
 });
 
+document.getElementById('historiquePaysFilterSelect').addEventListener('change', e => {
+  historiquePaysFilter = e.target.value;
+  renderHistoriqueStats();
+  renderHistorique();
+});
+
 function updateHistoriqueCepageFilterOptions() {
   const select = document.getElementById('historiqueCepageFilterSelect');
   const allCepages = new Set();
@@ -1770,6 +1849,21 @@ function updateHistoriqueRegionFilterOptions() {
   }
 }
 
+function updateHistoriquePaysFilterOptions() {
+  const select = document.getElementById('historiquePaysFilterSelect');
+  const paysList = [...new Set(archive.map(w => w.pays).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Tous les pays</option>` +
+    paysList.map(p => `<option value="${p}">${p}</option>`).join('');
+
+  if (paysList.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    historiquePaysFilter = 'tous';
+  }
+}
+
 async function loadArchive() {
   const list = document.getElementById('historiqueList');
   list.innerHTML = `<div class="loading">Chargement…</div>`;
@@ -1794,7 +1888,8 @@ function renderHistoriqueStats() {
     const matchCouleur = historiqueCouleurFilter === 'tous' || w.couleur === historiqueCouleurFilter;
     const matchCepage = historiqueCepageFilter === 'tous' || splitCepages(w.cepage).includes(historiqueCepageFilter);
     const matchRegion = historiqueRegionFilter === 'tous' || w.region === historiqueRegionFilter;
-    return matchFavoris && matchCouleur && matchCepage && matchRegion;
+    const matchPays = historiquePaysFilter === 'tous' || w.pays === historiquePaysFilter;
+    return matchFavoris && matchCouleur && matchCepage && matchRegion && matchPays;
   });
 
   if (!filteredArchive.length) {
@@ -1891,6 +1986,7 @@ function renderHistoriqueStats() {
 function renderHistorique() {
   updateHistoriqueCepageFilterOptions();
   updateHistoriqueRegionFilterOptions();
+  updateHistoriquePaysFilterOptions();
 
   const list = document.getElementById('historiqueList');
 
@@ -1899,13 +1995,14 @@ function renderHistorique() {
     const matchCouleur = historiqueCouleurFilter === 'tous' || w.couleur === historiqueCouleurFilter;
     const matchCepage = historiqueCepageFilter === 'tous' || splitCepages(w.cepage).includes(historiqueCepageFilter);
     const matchRegion = historiqueRegionFilter === 'tous' || w.region === historiqueRegionFilter;
+    const matchPays = historiquePaysFilter === 'tous' || w.pays === historiquePaysFilter;
     const q = historiqueSearch.toLowerCase();
     const matchSearch = !q || w.nom.toLowerCase().includes(q)
       || (w.domaine || '').toLowerCase().includes(q)
       || (w.region || '').toLowerCase().includes(q)
       || (w.cepage || '').toLowerCase().includes(q)
       || (w.note_degustation || '').toLowerCase().includes(q);
-    return matchFavoris && matchCouleur && matchCepage && matchRegion && matchSearch;
+    return matchFavoris && matchCouleur && matchCepage && matchRegion && matchPays && matchSearch;
   });
 
   filtered = sortArchive(filtered);
