@@ -1836,25 +1836,38 @@ function openArchiveDetail(id) {
   document.getElementById('btnRestoreCave').addEventListener('click', async () => {
     if (!confirm(`Remettre "${w.nom}" dans la cave (${w.quantite_bue} bouteille${w.quantite_bue > 1 ? 's' : ''}) ?`)) return;
 
-    await db.from('wines').insert({
-      nom: w.nom,
-      domaine: w.domaine,
-      millesime: w.millesime,
-      region: w.region,
-      pays: w.pays,
-      couleur: w.couleur,
-      cepage: w.cepage,
-      prix_achat: w.prix_achat,
-      quantite: w.quantite_bue,
-      boire_a_partir_de: w.boire_a_partir_de,
-      boire_avant: w.boire_avant,
-      notes: w.notes,
-      photo_url: w.photo_url,
-    });
+    // Cherche une fiche identique déjà en cave (même nom + domaine) pour fusionner
+    // plutôt que de créer une entrée séparée
+    const existing = wines.find(x =>
+      x.nom.trim().toLowerCase() === w.nom.trim().toLowerCase() &&
+      (x.domaine || '').trim().toLowerCase() === (w.domaine || '').trim().toLowerCase()
+    );
+
+    if (existing) {
+      const newQty = (existing.quantite || 0) + (w.quantite_bue || 0);
+      await db.from('wines').update({ quantite: newQty }).eq('id', existing.id);
+    } else {
+      await db.from('wines').insert({
+        nom: w.nom,
+        domaine: w.domaine,
+        millesime: w.millesime,
+        region: w.region,
+        pays: w.pays,
+        couleur: w.couleur,
+        cepage: w.cepage,
+        prix_achat: w.prix_achat,
+        quantite: w.quantite_bue,
+        boire_a_partir_de: w.boire_a_partir_de,
+        boire_avant: w.boire_avant,
+        notes: w.notes,
+        photo_url: w.photo_url,
+      });
+    }
+
     await db.from('wines_archive').delete().eq('id', w.id);
 
     closeModal('modalDetail');
-    showToast('Vin remis en cave 🍷');
+    showToast(existing ? 'Quantité fusionnée avec la fiche existante 🍷' : 'Vin remis en cave 🍷');
     await loadArchive();
     await loadWines();
   });
