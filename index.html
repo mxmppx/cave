@@ -962,7 +962,7 @@
         <option value="prix_desc">Prix (élevé → faible)</option>
         <option value="prix_asc">Prix (faible → élevé)</option>
         <option value="ajout_desc">Date d'ajout (récent)</option>
-        <option value="nom">Nom (A → Z)</option>
+        <option value="nom" selected>Nom (A → Z)</option>
       </select>
     </div>
     <div class="sort-row">
@@ -1302,7 +1302,7 @@ function photoOrEmoji(w, size = 52) {
 }
 
 // ── Render cave ───────────────────────────────────────
-let sortMode = 'echeance';
+let sortMode = 'nom';
 
 function getDejaBuCount(w) {
   // Compte les bouteilles archivées du même nom + domaine (référence identique)
