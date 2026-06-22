@@ -971,6 +971,12 @@
         <option value="tous">Tous les cépages</option>
       </select>
     </div>
+    <div class="sort-row">
+      <span class="sort-label">Région</span>
+      <select class="form-select sort-select" id="regionFilterSelect">
+        <option value="tous">Toutes les régions</option>
+      </select>
+    </div>
     <div class="wine-list" id="wineList">
       <div class="loading">Chargement…</div>
     </div>
@@ -999,6 +1005,18 @@
     <div class="filters">
       <button class="filter-chip active" data-coup-de-coeur="tous">Tous</button>
       <button class="filter-chip" data-coup-de-coeur="favoris">⭐ Coups de cœur</button>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">Cépage</span>
+      <select class="form-select sort-select" id="historiqueCepageFilterSelect">
+        <option value="tous">Tous les cépages</option>
+      </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">Région</span>
+      <select class="form-select sort-select" id="historiqueRegionFilterSelect">
+        <option value="tous">Toutes les régions</option>
+      </select>
     </div>
     <div class="wine-list" id="historiqueList">
       <div class="loading">Chargement…</div>
@@ -1343,6 +1361,12 @@ document.getElementById('cepageFilterSelect').addEventListener('change', e => {
   renderCave();
 });
 
+let regionFilter = 'tous';
+document.getElementById('regionFilterSelect').addEventListener('change', e => {
+  regionFilter = e.target.value;
+  renderCave();
+});
+
 // Découpe un champ cépage en cépages individuels (gère virgule, slash, "et", "&")
 function splitCepages(cepageStr) {
   if (!cepageStr) return [];
@@ -1370,19 +1394,37 @@ function updateCepageFilterOptions() {
   }
 }
 
+function updateRegionFilterOptions() {
+  const select = document.getElementById('regionFilterSelect');
+  const regions = [...new Set(wines.map(w => w.region).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Toutes les régions</option>` +
+    regions.map(r => `<option value="${r}">${r}</option>`).join('');
+
+  // Conserve la sélection si elle est toujours valide, sinon revient à "tous"
+  if (regions.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    regionFilter = 'tous';
+  }
+}
+
 function renderCave() {
   updateCepageFilterOptions();
+  updateRegionFilterOptions();
 
   const list = document.getElementById('wineList');
   let filtered = wines.filter(w => {
     const matchCouleur = filterCouleur === 'tous' || w.couleur === filterCouleur;
     const matchCepage = cepageFilter === 'tous' || splitCepages(w.cepage).includes(cepageFilter);
+    const matchRegion = regionFilter === 'tous' || w.region === regionFilter;
     const q = filterSearch.toLowerCase();
     const matchSearch = !q || w.nom.toLowerCase().includes(q)
       || (w.domaine || '').toLowerCase().includes(q)
       || (w.region || '').toLowerCase().includes(q)
       || (w.cepage || '').toLowerCase().includes(q);
-    return matchCouleur && matchCepage && matchSearch;
+    return matchCouleur && matchCepage && matchRegion && matchSearch;
   });
 
   filtered = sortWines(filtered);
@@ -1554,6 +1596,50 @@ function renderABoire() {
 let archive = [];
 let historiqueSearch = '';
 let historiqueFilter = 'tous';
+let historiqueCepageFilter = 'tous';
+let historiqueRegionFilter = 'tous';
+
+document.getElementById('historiqueCepageFilterSelect').addEventListener('change', e => {
+  historiqueCepageFilter = e.target.value;
+  renderHistorique();
+});
+
+document.getElementById('historiqueRegionFilterSelect').addEventListener('change', e => {
+  historiqueRegionFilter = e.target.value;
+  renderHistorique();
+});
+
+function updateHistoriqueCepageFilterOptions() {
+  const select = document.getElementById('historiqueCepageFilterSelect');
+  const allCepages = new Set();
+  archive.forEach(w => splitCepages(w.cepage).forEach(c => allCepages.add(c)));
+  const cepages = [...allCepages].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Tous les cépages</option>` +
+    cepages.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  if (cepages.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    historiqueCepageFilter = 'tous';
+  }
+}
+
+function updateHistoriqueRegionFilterOptions() {
+  const select = document.getElementById('historiqueRegionFilterSelect');
+  const regions = [...new Set(archive.map(w => w.region).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Toutes les régions</option>` +
+    regions.map(r => `<option value="${r}">${r}</option>`).join('');
+
+  if (regions.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    historiqueRegionFilter = 'tous';
+  }
+}
 
 async function loadArchive() {
   const list = document.getElementById('historiqueList');
@@ -1613,17 +1699,22 @@ function renderHistoriqueStats() {
 }
 
 function renderHistorique() {
+  updateHistoriqueCepageFilterOptions();
+  updateHistoriqueRegionFilterOptions();
+
   const list = document.getElementById('historiqueList');
 
   let filtered = archive.filter(w => {
     const matchFavoris = historiqueFilter === 'tous' || (w.note_sur_5 >= 4);
+    const matchCepage = historiqueCepageFilter === 'tous' || splitCepages(w.cepage).includes(historiqueCepageFilter);
+    const matchRegion = historiqueRegionFilter === 'tous' || w.region === historiqueRegionFilter;
     const q = historiqueSearch.toLowerCase();
     const matchSearch = !q || w.nom.toLowerCase().includes(q)
       || (w.domaine || '').toLowerCase().includes(q)
       || (w.region || '').toLowerCase().includes(q)
       || (w.cepage || '').toLowerCase().includes(q)
       || (w.note_degustation || '').toLowerCase().includes(q);
-    return matchFavoris && matchSearch;
+    return matchFavoris && matchCepage && matchRegion && matchSearch;
   });
 
   if (!filtered.length) {
