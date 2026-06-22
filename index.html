@@ -1855,8 +1855,8 @@ function openArchiveDetail(id) {
 
     closeModal('modalDetail');
     showToast('Vin remis en cave 🍷');
-    await loadWines();
     await loadArchive();
+    await loadWines();
   });
 
   document.getElementById('btnDeleteArchive').addEventListener('click', async () => {
@@ -1937,6 +1937,7 @@ async function confirmArchive() {
   closeModal('modalArchive');
   showToast('Vin archivé 📖');
   archiveTarget = null;
+  await loadArchive();
   await loadWines();
 }
 
