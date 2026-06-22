@@ -1774,6 +1774,10 @@ function openArchiveDetail(id) {
   const date = w.date_consommation
     ? new Date(w.date_consommation).toLocaleDateString('fr-CH', { day: 'numeric', month: 'long', year: 'numeric' })
     : '—';
+  const fenetre = w.boire_a_partir_de && w.boire_avant
+    ? `${w.boire_a_partir_de} – ${w.boire_avant}`
+    : w.boire_a_partir_de ? `dès ${w.boire_a_partir_de}`
+    : w.boire_avant ? `avant ${w.boire_avant}` : '—';
 
   document.getElementById('detailContent').innerHTML = `
     <div class="detail-header">
@@ -1808,6 +1812,10 @@ function openArchiveDetail(id) {
         <div class="detail-item-label">Prix unitaire</div>
         <div class="detail-item-value">${w.prix_achat ? w.prix_achat.toLocaleString('fr-CH') + ' CHF' : '—'}</div>
       </div>
+      <div class="detail-item">
+        <div class="detail-item-label">Fenêtre de dégustation</div>
+        <div class="detail-item-value">${fenetre}</div>
+      </div>
       <div class="detail-item" style="grid-column:1/-1">
         <div class="detail-item-label">Bu le</div>
         <div class="detail-item-value">${date}</div>
@@ -1838,6 +1846,8 @@ function openArchiveDetail(id) {
       cepage: w.cepage,
       prix_achat: w.prix_achat,
       quantite: w.quantite_bue,
+      boire_a_partir_de: w.boire_a_partir_de,
+      boire_avant: w.boire_avant,
       notes: w.notes,
       photo_url: w.photo_url,
     });
@@ -1906,6 +1916,8 @@ async function confirmArchive() {
     cepage: w.cepage,
     prix_achat: w.prix_achat,
     quantite_bue: quantiteBue,
+    boire_a_partir_de: w.boire_a_partir_de,
+    boire_avant: w.boire_avant,
     photo_url: w.photo_url,
     notes: w.notes,
     note_degustation: note,
