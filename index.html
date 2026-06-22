@@ -1002,9 +1002,28 @@
     <div class="search-row">
       <input class="search-input" type="search" placeholder="Rechercher..." id="historiqueSearch" />
     </div>
+    <div class="filters" id="historiqueColorFilters">
+      <button class="filter-chip active" data-filter="tous">Tous</button>
+      <button class="filter-chip" data-filter="rouge">🍷 Rouge</button>
+      <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
+      <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
+      <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
+    </div>
     <div class="filters">
       <button class="filter-chip active" data-coup-de-coeur="tous">Tous</button>
       <button class="filter-chip" data-coup-de-coeur="favoris">⭐ Coups de cœur</button>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">Trier par</span>
+      <select class="form-select sort-select" id="historiqueSortSelect">
+        <option value="bu_desc" selected>Bu le... (récent → ancien)</option>
+        <option value="bu_asc">Bu le... (ancien → récent)</option>
+        <option value="millesime_desc">Millésime (récent → ancien)</option>
+        <option value="millesime_asc">Millésime (ancien → récent)</option>
+        <option value="prix_desc">Prix (élevé → faible)</option>
+        <option value="prix_asc">Prix (faible → élevé)</option>
+        <option value="nom">Nom (A → Z)</option>
+      </select>
     </div>
     <div class="sort-row">
       <span class="sort-label">Cépage</span>
@@ -1598,6 +1617,43 @@ let historiqueSearch = '';
 let historiqueFilter = 'tous';
 let historiqueCepageFilter = 'tous';
 let historiqueRegionFilter = 'tous';
+let historiqueCouleurFilter = 'tous';
+let historiqueSortMode = 'bu_desc';
+
+document.getElementById('historiqueColorFilters').addEventListener('click', e => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  document.querySelectorAll('#historiqueColorFilters .filter-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  historiqueCouleurFilter = chip.dataset.filter;
+  renderHistorique();
+});
+
+document.getElementById('historiqueSortSelect').addEventListener('change', e => {
+  historiqueSortMode = e.target.value;
+  renderHistorique();
+});
+
+function sortArchive(list) {
+  const sorted = [...list];
+  switch (historiqueSortMode) {
+    case 'bu_asc':
+      return sorted.sort((a,b) => new Date(a.date_consommation || 0) - new Date(b.date_consommation || 0));
+    case 'millesime_desc':
+      return sorted.sort((a,b) => (b.millesime || 0) - (a.millesime || 0));
+    case 'millesime_asc':
+      return sorted.sort((a,b) => (a.millesime || 9999) - (b.millesime || 9999));
+    case 'prix_desc':
+      return sorted.sort((a,b) => (b.prix_achat || 0) - (a.prix_achat || 0));
+    case 'prix_asc':
+      return sorted.sort((a,b) => (a.prix_achat || 0) - (b.prix_achat || 0));
+    case 'nom':
+      return sorted.sort((a,b) => a.nom.localeCompare(b.nom));
+    case 'bu_desc':
+    default:
+      return sorted.sort((a,b) => new Date(b.date_consommation || 0) - new Date(a.date_consommation || 0));
+  }
+}
 
 document.getElementById('historiqueCepageFilterSelect').addEventListener('change', e => {
   historiqueCepageFilter = e.target.value;
@@ -1706,6 +1762,7 @@ function renderHistorique() {
 
   let filtered = archive.filter(w => {
     const matchFavoris = historiqueFilter === 'tous' || (w.note_sur_5 >= 4);
+    const matchCouleur = historiqueCouleurFilter === 'tous' || w.couleur === historiqueCouleurFilter;
     const matchCepage = historiqueCepageFilter === 'tous' || splitCepages(w.cepage).includes(historiqueCepageFilter);
     const matchRegion = historiqueRegionFilter === 'tous' || w.region === historiqueRegionFilter;
     const q = historiqueSearch.toLowerCase();
@@ -1714,8 +1771,10 @@ function renderHistorique() {
       || (w.region || '').toLowerCase().includes(q)
       || (w.cepage || '').toLowerCase().includes(q)
       || (w.note_degustation || '').toLowerCase().includes(q);
-    return matchFavoris && matchCepage && matchRegion && matchSearch;
+    return matchFavoris && matchCouleur && matchCepage && matchRegion && matchSearch;
   });
+
+  filtered = sortArchive(filtered);
 
   if (!filtered.length) {
     list.innerHTML = `<div class="empty"><div class="empty-icon">📖</div><h3>${archive.length ? 'Aucun résultat' : 'Aucun vin bu pour l’instant'}</h3><p>${archive.length ? 'Essayez une autre recherche.' : 'Les vins consommés apparaîtront ici.'}</p></div>`;
