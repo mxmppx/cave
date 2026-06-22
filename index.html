@@ -23,7 +23,7 @@
     <link rel="apple-touch-icon" href="/icon-180.png" />
     En attendant, l'app utilise le même visuel bouteille que le favicon.
   -->
-  <link rel="apple-touch-icon" href="/icon-180.png" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%23F5F0E8'/%3E%3Cpath d='M78 16h24v28c0 6 3 9 6 14 6 8 8 17 8 28v70a8 8 0 0 1-8 8H72a8 8 0 0 1-8-8V86c0-11 2-20 8-28 3-5 6-8 6-14z' fill='%237B1E2E'/%3E%3Cpath d='M78 16h24v17h-24z' fill='%238B6914'/%3E%3Crect x='75' y='10' width='30' height='10' rx='2' fill='%23C49A2A'/%3E%3C/svg%3E" />
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -69,6 +69,7 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
+      overflow-x: hidden;
       transition: background 0.3s, color 0.3s;
     }
     button { cursor: pointer; border: none; background: none; font-family: inherit; }
@@ -336,7 +337,7 @@
     @media (min-width: 900px) {
       .wine-list {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 12px;
       }
       .wine-list .empty { grid-column: 1 / -1; }
@@ -352,6 +353,9 @@
       box-shadow: var(--shadow);
       cursor: pointer;
       transition: border-color 0.15s;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
     }
     .wine-card:hover { border-color: var(--gold); }
     .wine-thumb {
