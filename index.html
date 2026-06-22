@@ -1719,6 +1719,7 @@ function renderHistoriqueStats() {
   const thisYear = new Date().getFullYear();
   const buCetteAnnee = archive.filter(w => w.date_consommation && new Date(w.date_consommation).getFullYear() === thisYear);
   const totalBuCetteAnnee = buCetteAnnee.reduce((s, w) => s + (w.quantite_bue || 0), 0);
+  const totalBu = archive.reduce((s, w) => s + (w.quantite_bue || 0), 0);
   const valeurConsommee = archive.reduce((s, w) => s + (w.prix_achat || 0) * (w.quantite_bue || 0), 0);
 
   const couleurCounts = {};
@@ -1726,9 +1727,43 @@ function renderHistoriqueStats() {
     const c = w.couleur || 'autre';
     couleurCounts[c] = (couleurCounts[c] || 0) + (w.quantite_bue || 0);
   });
+  const maxCouleur = Math.max(...Object.values(couleurCounts), 1);
   const couleurPref = Object.entries(couleurCounts).sort((a,b) => b[1]-a[1])[0];
 
   const favoris = archive.filter(w => w.note_sur_5 >= 4).length;
+
+  const regionCounts = {};
+  archive.forEach(w => {
+    if (w.region) regionCounts[w.region] = (regionCounts[w.region] || 0) + (w.quantite_bue || 0);
+  });
+  const regions = Object.entries(regionCounts).sort((a,b) => b[1]-a[1]).slice(0, 8);
+
+  const cepageCounts = {};
+  archive.forEach(w => {
+    splitCepages(w.cepage).forEach(c => {
+      cepageCounts[c] = (cepageCounts[c] || 0) + (w.quantite_bue || 0);
+    });
+  });
+  const cepages = Object.entries(cepageCounts).sort((a,b) => b[1]-a[1]).slice(0, 8);
+
+  const colorBars = Object.entries(couleurCounts).map(([c, n]) => `
+    <div class="color-bar-row">
+      <div class="color-bar-label">${COULEUR_EMOJI[c] || '🍾'} ${c}</div>
+      <div class="color-bar-track"><div class="color-bar-fill ${COULEUR_CLASS[c] || ''}" style="width:${Math.round(n/maxCouleur*100)}%"></div></div>
+      <div class="color-bar-count">${n}</div>
+    </div>`).join('');
+
+  const regionRows = regions.map(([r, n]) => `
+    <div class="region-row">
+      <span class="region-name">${r}</span>
+      <span class="region-count">${n} btl</span>
+    </div>`).join('');
+
+  const cepageRows = cepages.map(([c, n]) => `
+    <div class="region-row">
+      <span class="region-name">${c}</span>
+      <span class="region-count">${n} btl</span>
+    </div>`).join('');
 
   grid.innerHTML = `
     <div class="stat-card">
@@ -1737,20 +1772,34 @@ function renderHistoriqueStats() {
       <div class="stat-sub">${thisYear}</div>
     </div>
     <div class="stat-card">
+      <div class="stat-label">Total bu</div>
+      <div class="stat-value">${totalBu}</div>
+      <div class="stat-sub">${archive.length} référence${archive.length > 1 ? 's' : ''}</div>
+    </div>
+    <div class="stat-card">
       <div class="stat-label">Valeur consommée</div>
       <div class="stat-value">${valeurConsommee ? valeurConsommee.toLocaleString('fr-CH', {maximumFractionDigits:0}) : '—'}</div>
       <div class="stat-sub">${valeurConsommee ? 'CHF' : 'prix non saisis'}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Couleur préférée</div>
-      <div class="stat-value" style="font-size:22px">${couleurPref ? (COULEUR_EMOJI[couleurPref[0]] || '🍾') + ' ' + couleurPref[0] : '—'}</div>
-      <div class="stat-sub">${couleurPref ? couleurPref[1] + ' btl bues' : ''}</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Coups de cœur</div>
       <div class="stat-value green">${favoris}</div>
       <div class="stat-sub">notés 4★ ou 5★</div>
     </div>
+    <div class="stat-card full">
+      <div class="stat-label">Répartition par couleur</div>
+      <div class="color-bars">${colorBars}</div>
+    </div>
+    ${regions.length ? `
+    <div class="stat-card full">
+      <div class="stat-label">Par région</div>
+      <div class="region-list">${regionRows}</div>
+    </div>` : ''}
+    ${cepages.length ? `
+    <div class="stat-card full">
+      <div class="stat-label">Par cépage</div>
+      <div class="region-list">${cepageRows}</div>
+    </div>` : ''}
   `;
 }
 
