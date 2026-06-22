@@ -984,6 +984,25 @@
 
   <!-- ── TAB : STATS ────────────────────────────── -->
   <div class="section hidden" id="tab-stats">
+    <div class="filters" id="statsColorFilters">
+      <button class="filter-chip active" data-filter="tous">Tous</button>
+      <button class="filter-chip" data-filter="rouge">🍷 Rouge</button>
+      <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
+      <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
+      <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">Cépage</span>
+      <select class="form-select sort-select" id="statsCepageFilterSelect">
+        <option value="tous">Tous les cépages</option>
+      </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">Région</span>
+      <select class="form-select sort-select" id="statsRegionFilterSelect">
+        <option value="tous">Toutes les régions</option>
+      </select>
+    </div>
     <div class="stat-grid" id="statsGrid">
       <div class="loading" style="grid-column:1/-1">Chargement…</div>
     </div>
@@ -1478,29 +1497,80 @@ function renderCave() {
 }
 
 // ── Render stats ──────────────────────────────────────
+let statsColorFilter = 'tous';
+let statsCepageFilter = 'tous';
+let statsRegionFilter = 'tous';
+
+document.getElementById('statsColorFilters').addEventListener('click', e => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  document.querySelectorAll('#statsColorFilters .filter-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  statsColorFilter = chip.dataset.filter;
+  renderStats();
+});
+
+document.getElementById('statsCepageFilterSelect').addEventListener('change', e => {
+  statsCepageFilter = e.target.value;
+  renderStats();
+});
+
+document.getElementById('statsRegionFilterSelect').addEventListener('change', e => {
+  statsRegionFilter = e.target.value;
+  renderStats();
+});
+
+function updateStatsFilterOptions() {
+  const cepageSelect = document.getElementById('statsCepageFilterSelect');
+  const allCepages = new Set();
+  wines.forEach(w => splitCepages(w.cepage).forEach(c => allCepages.add(c)));
+  const cepages = [...allCepages].sort((a,b) => a.localeCompare(b));
+  const prevCepage = cepageSelect.value;
+  cepageSelect.innerHTML = `<option value="tous">Tous les cépages</option>` +
+    cepages.map(c => `<option value="${c}">${c}</option>`).join('');
+  if (cepages.includes(prevCepage)) { cepageSelect.value = prevCepage; } else { statsCepageFilter = 'tous'; }
+
+  const regionSelect = document.getElementById('statsRegionFilterSelect');
+  const regionsAvail = [...new Set(wines.map(w => w.region).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const prevRegion = regionSelect.value;
+  regionSelect.innerHTML = `<option value="tous">Toutes les régions</option>` +
+    regionsAvail.map(r => `<option value="${r}">${r}</option>`).join('');
+  if (regionsAvail.includes(prevRegion)) { regionSelect.value = prevRegion; } else { statsRegionFilter = 'tous'; }
+}
+
 function renderStats() {
+  updateStatsFilterOptions();
+
   const grid = document.getElementById('statsGrid');
-  if (!wines.length) {
-    grid.innerHTML = `<div class="loading" style="grid-column:1/-1">Aucune donnée</div>`;
+
+  const filteredWines = wines.filter(w => {
+    const matchCouleur = statsColorFilter === 'tous' || w.couleur === statsColorFilter;
+    const matchCepage = statsCepageFilter === 'tous' || splitCepages(w.cepage).includes(statsCepageFilter);
+    const matchRegion = statsRegionFilter === 'tous' || w.region === statsRegionFilter;
+    return matchCouleur && matchCepage && matchRegion;
+  });
+
+  if (!filteredWines.length) {
+    grid.innerHTML = `<div class="loading" style="grid-column:1/-1">Aucune donnée pour ce filtre</div>`;
     return;
   }
 
-  const total = wines.reduce((s, w) => s + (w.quantite || 0), 0);
-  const lignes = wines.length;
-  const valeur = wines.reduce((s, w) => s + (w.prix_achat || 0) * (w.quantite || 0), 0);
+  const total = filteredWines.reduce((s, w) => s + (w.quantite || 0), 0);
+  const lignes = filteredWines.length;
+  const valeur = filteredWines.reduce((s, w) => s + (w.prix_achat || 0) * (w.quantite || 0), 0);
 
   const statutCounts = { pret: 0, attendre: 0, urgent: 0, passe: 0 };
-  wines.forEach(w => { const s = getStatut(w); if (s) statutCounts[s]++; });
+  filteredWines.forEach(w => { const s = getStatut(w); if (s) statutCounts[s]++; });
 
   const couleurCounts = {};
-  wines.forEach(w => {
+  filteredWines.forEach(w => {
     const c = w.couleur || 'autre';
     couleurCounts[c] = (couleurCounts[c] || 0) + (w.quantite || 0);
   });
   const maxCouleur = Math.max(...Object.values(couleurCounts), 1);
 
   const regionCounts = {};
-  wines.forEach(w => {
+  filteredWines.forEach(w => {
     if (w.region) regionCounts[w.region] = (regionCounts[w.region] || 0) + (w.quantite || 0);
   });
   const regions = Object.entries(regionCounts).sort((a,b) => b[1]-a[1]).slice(0, 8);
@@ -1519,7 +1589,7 @@ function renderStats() {
     </div>`).join('');
 
   const cepageCounts = {};
-  wines.forEach(w => {
+  filteredWines.forEach(w => {
     splitCepages(w.cepage).forEach(c => {
       cepageCounts[c] = (cepageCounts[c] || 0) + (w.quantite || 0);
     });
@@ -1626,6 +1696,7 @@ document.getElementById('historiqueColorFilters').addEventListener('click', e =>
   document.querySelectorAll('#historiqueColorFilters .filter-chip').forEach(c => c.classList.remove('active'));
   chip.classList.add('active');
   historiqueCouleurFilter = chip.dataset.filter;
+  renderHistoriqueStats();
   renderHistorique();
 });
 
@@ -1657,11 +1728,13 @@ function sortArchive(list) {
 
 document.getElementById('historiqueCepageFilterSelect').addEventListener('change', e => {
   historiqueCepageFilter = e.target.value;
+  renderHistoriqueStats();
   renderHistorique();
 });
 
 document.getElementById('historiqueRegionFilterSelect').addEventListener('change', e => {
   historiqueRegionFilter = e.target.value;
+  renderHistoriqueStats();
   renderHistorique();
 });
 
@@ -1716,30 +1789,42 @@ function renderHistoriqueStats() {
   const grid = document.getElementById('historiqueStats');
   if (!archive.length) { grid.innerHTML = ''; return; }
 
+  const filteredArchive = archive.filter(w => {
+    const matchFavoris = historiqueFilter === 'tous' || (w.note_sur_5 >= 4);
+    const matchCouleur = historiqueCouleurFilter === 'tous' || w.couleur === historiqueCouleurFilter;
+    const matchCepage = historiqueCepageFilter === 'tous' || splitCepages(w.cepage).includes(historiqueCepageFilter);
+    const matchRegion = historiqueRegionFilter === 'tous' || w.region === historiqueRegionFilter;
+    return matchFavoris && matchCouleur && matchCepage && matchRegion;
+  });
+
+  if (!filteredArchive.length) {
+    grid.innerHTML = `<div class="loading" style="grid-column:1/-1">Aucune donnée pour ce filtre</div>`;
+    return;
+  }
+
   const thisYear = new Date().getFullYear();
-  const buCetteAnnee = archive.filter(w => w.date_consommation && new Date(w.date_consommation).getFullYear() === thisYear);
+  const buCetteAnnee = filteredArchive.filter(w => w.date_consommation && new Date(w.date_consommation).getFullYear() === thisYear);
   const totalBuCetteAnnee = buCetteAnnee.reduce((s, w) => s + (w.quantite_bue || 0), 0);
-  const totalBu = archive.reduce((s, w) => s + (w.quantite_bue || 0), 0);
-  const valeurConsommee = archive.reduce((s, w) => s + (w.prix_achat || 0) * (w.quantite_bue || 0), 0);
+  const totalBu = filteredArchive.reduce((s, w) => s + (w.quantite_bue || 0), 0);
+  const valeurConsommee = filteredArchive.reduce((s, w) => s + (w.prix_achat || 0) * (w.quantite_bue || 0), 0);
 
   const couleurCounts = {};
-  archive.forEach(w => {
+  filteredArchive.forEach(w => {
     const c = w.couleur || 'autre';
     couleurCounts[c] = (couleurCounts[c] || 0) + (w.quantite_bue || 0);
   });
   const maxCouleur = Math.max(...Object.values(couleurCounts), 1);
-  const couleurPref = Object.entries(couleurCounts).sort((a,b) => b[1]-a[1])[0];
 
-  const favoris = archive.filter(w => w.note_sur_5 >= 4).length;
+  const favoris = filteredArchive.filter(w => w.note_sur_5 >= 4).length;
 
   const regionCounts = {};
-  archive.forEach(w => {
+  filteredArchive.forEach(w => {
     if (w.region) regionCounts[w.region] = (regionCounts[w.region] || 0) + (w.quantite_bue || 0);
   });
   const regions = Object.entries(regionCounts).sort((a,b) => b[1]-a[1]).slice(0, 8);
 
   const cepageCounts = {};
-  archive.forEach(w => {
+  filteredArchive.forEach(w => {
     splitCepages(w.cepage).forEach(c => {
       cepageCounts[c] = (cepageCounts[c] || 0) + (w.quantite_bue || 0);
     });
@@ -1774,7 +1859,7 @@ function renderHistoriqueStats() {
     <div class="stat-card">
       <div class="stat-label">Total bu</div>
       <div class="stat-value">${totalBu}</div>
-      <div class="stat-sub">${archive.length} référence${archive.length > 1 ? 's' : ''}</div>
+      <div class="stat-sub">${filteredArchive.length} référence${filteredArchive.length > 1 ? 's' : ''}</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Valeur consommée</div>
@@ -1866,6 +1951,7 @@ document.querySelectorAll('[data-coup-de-coeur]').forEach(chip => {
     document.querySelectorAll('[data-coup-de-coeur]').forEach(c => c.classList.remove('active'));
     chip.classList.add('active');
     historiqueFilter = chip.dataset.coupDeCoeur;
+    renderHistoriqueStats();
     renderHistorique();
   });
 });
