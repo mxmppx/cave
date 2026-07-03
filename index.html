@@ -25,7 +25,7 @@
   -->
   <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%23F5F0E8'/%3E%3Cpath d='M78 16h24v28c0 6 3 9 6 14 6 8 8 17 8 28v70a8 8 0 0 1-8 8H72a8 8 0 0 1-8-8V86c0-11 2-20 8-28 3-5 6-8 6-14z' fill='%237B1E2E'/%3E%3Cpath d='M78 16h24v17h-24z' fill='%238B6914'/%3E%3Crect x='75' y='10' width='30' height='10' rx='2' fill='%23C49A2A'/%3E%3C/svg%3E" />
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     /* ── Tokens ──────────────────────────────────── */
@@ -929,6 +929,26 @@
 </head>
 <body>
 
+<!-- ── LOGIN OVERLAY ─────────────────────────────────── -->
+<div class="modal-overlay hidden" id="login-overlay" style="align-items:center;z-index:200">
+  <div class="modal" style="max-width:360px;border-radius:20px;padding:28px 24px;animation:fadeScale 0.2s ease">
+    <div class="modal-title" style="margin-bottom:6px">Ma <span style="color:var(--gold)">cave</span> 🍷</div>
+    <p class="dup-intro" style="margin-bottom:20px">Connecte-toi pour accéder à ta cave.</p>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input class="form-input" type="email" id="login-email" autocomplete="username" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Mot de passe</label>
+      <input class="form-input" type="password" id="login-password" autocomplete="current-password" />
+    </div>
+    <div id="login-msg" class="scan-status"></div>
+    <div class="form-actions">
+      <button class="btn-save" id="login-btn" style="flex:1" onclick="doLogin()">Se connecter</button>
+    </div>
+  </div>
+</div>
+
 <div class="app">
   <!-- Header -->
   <div class="header">
@@ -936,7 +956,10 @@
       <div class="eyebrow">Gestion cave</div>
       <h1>Ma <span>cave</span></h1>
     </div>
-    <button class="btn-theme" id="btnTheme" aria-label="Thème">🌙</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn-theme" id="btnLogout" aria-label="Déconnexion" onclick="logout()">🔒</button>
+      <button class="btn-theme" id="btnTheme" aria-label="Thème">🌙</button>
+    </div>
   </div>
 
   <!-- Nav -->
@@ -1299,6 +1322,39 @@ const SUPABASE_KEY = 'sb_publishable_3sIlqi_GerHO1T2A9hHv4A_oFsC48lP';
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// ── Auth ──────────────────────────────────────────────
+function showLogin() { document.getElementById('login-overlay').classList.remove('hidden'); }
+function hideLogin() { document.getElementById('login-overlay').classList.add('hidden'); }
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const msg = document.getElementById('login-msg');
+  const btn = document.getElementById('login-btn');
+  if (!email || !password) { msg.style.color = 'var(--urgent)'; msg.textContent = 'Remplis les deux champs.'; return; }
+  btn.disabled = true; btn.textContent = 'Connexion...';
+  const { error } = await db.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = 'Se connecter';
+  if (error) {
+    msg.style.color = 'var(--urgent)';
+    msg.textContent = (error.status === 400 || error.status === 401) ? 'Email ou mot de passe incorrect.' : 'Connexion impossible. Vérifie le réseau.';
+    return;
+  }
+  document.getElementById('login-password').value = '';
+  hideLogin();
+  loadWines();
+}
+
+async function logout() {
+  if (!confirm('Se déconnecter ?')) return;
+  await db.auth.signOut();
+  showLogin();
+}
+
+document.getElementById('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
 // ── State ─────────────────────────────────────────────
 let wines = [];
 let filterCouleur = 'tous';
@@ -1345,7 +1401,11 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 // ── Load wines ────────────────────────────────────────
 async function loadWines() {
   const { data, error } = await db.from('wines').select('*').order('boire_avant', { ascending: true, nullsFirst: false });
-  if (error) { console.error(error); return; }
+  if (error) {
+    console.error('Erreur chargement wines:', error);
+    document.getElementById('wineList').innerHTML = `<div class="empty"><div class="empty-icon">❌</div><h3>Erreur Supabase</h3><p>${error.message || error.hint || 'réponse inattendue'}</p></div>`;
+    return;
+  }
   wines = data || [];
   renderCave();
 }
@@ -1868,7 +1928,11 @@ async function loadArchive() {
   const list = document.getElementById('historiqueList');
   list.innerHTML = `<div class="loading">Chargement…</div>`;
   const { data, error } = await db.from('wines_archive').select('*').order('date_consommation', { ascending: false });
-  if (error) { console.error(error); list.innerHTML = `<div class="loading">Erreur de chargement</div>`; return; }
+  if (error) {
+    console.error('Erreur chargement wines_archive:', error);
+    list.innerHTML = `<div class="loading">❌ Erreur Supabase : ${error.message || error.hint || 'réponse inattendue'}</div>`;
+    return;
+  }
   archive = data || [];
   renderHistoriqueStats();
   renderHistorique();
@@ -2858,12 +2922,20 @@ function showToast(msg) {
 }
 
 // ── Init ──────────────────────────────────────────────
-loadWines();
-// Charge l'archive en arrière-plan (silencieux) pour le compteur "déjà bu" dans Cave
-db.from('wines_archive').select('*').order('date_consommation', { ascending: false })
-  .then(({ data, error }) => {
-    if (!error && data) { archive = data; renderCave(); }
-  });
+(async () => {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { showLogin(); return; }
+  loadWines();
+  // Charge l'archive en arrière-plan (silencieux) pour le compteur "déjà bu" dans Cave
+  db.from('wines_archive').select('*').order('date_consommation', { ascending: false })
+    .then(({ data, error }) => {
+      if (!error && data) { archive = data; renderCave(); }
+    });
+})();
+
+db.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_OUT') showLogin();
+});
 </script>
 </body>
 </html>
