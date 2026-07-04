@@ -1276,6 +1276,32 @@
   </div>
 </div>
 
+<!-- ── MODAL : MODIFIER NOTE (historique) ───────────── -->
+<div class="modal-overlay hidden" id="modalEditArchive">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-close-bar"><button class="modal-close-btn" data-close-modal="modalEditArchive" aria-label="Fermer">✕</button></div>
+    <div class="modal-title">Modifier la dégustation ✏️</div>
+    <div class="form-group">
+      <label class="form-label">Note</label>
+      <div class="star-picker" id="starPickerEdit">
+        <button class="star-btn" data-star="1">★</button>
+        <button class="star-btn" data-star="2">★</button>
+        <button class="star-btn" data-star="3">★</button>
+        <button class="star-btn" data-star="4">★</button>
+        <button class="star-btn" data-star="5">★</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Note de dégustation (optionnel)</label>
+      <textarea class="form-textarea" id="editArchiveNote" placeholder="Très bon, à racheter ! Tanins encore un peu fermes…"></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn-cancel" id="btnEditArchiveCancel">Annuler</button>
+      <button class="btn-save" id="btnEditArchiveConfirm">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── MODAL : DOUBLON ──────────────────────────────── -->
 <div class="modal-overlay hidden" id="modalDuplicate">
   <div class="modal" style="max-width:480px">
@@ -2270,6 +2296,7 @@ function openArchiveDetail(id) {
     ${w.notes ? `<div class="detail-notes">📝 Notes d'origine : ${w.notes}</div>` : ''}
     ${w.note_degustation ? `<div class="detail-notes">💬 ${w.note_degustation}</div>` : ''}
     <div class="detail-actions">
+      <button class="btn-edit" id="btnEditArchiveNote">✏️ Modifier la note</button>
       <button class="btn-consume" id="btnRestoreCave">↩ Remettre en cave</button>
       <button class="btn-edit" id="btnDeleteArchive" style="background:var(--urgent)">🗑 Supprimer définitivement</button>
     </div>
@@ -2278,6 +2305,10 @@ function openArchiveDetail(id) {
   if (w.photo_url) {
     document.getElementById('detailPhotoZoom').addEventListener('click', () => openImageViewer(w.photo_url));
   }
+
+  document.getElementById('btnEditArchiveNote').addEventListener('click', () => {
+    openEditArchiveModal(w);
+  });
 
   document.getElementById('btnRestoreCave').addEventListener('click', async () => {
     if (!confirm(`Remettre "${w.nom}" dans la cave (${w.quantite_bue} bouteille${w.quantite_bue > 1 ? 's' : ''}) ?`)) return;
@@ -2404,6 +2435,61 @@ document.getElementById('btnArchiveConfirm').addEventListener('click', confirmAr
 document.getElementById('btnArchiveCancel').addEventListener('click', () => {
   closeModal('modalArchive');
   archiveTarget = null;
+});
+
+// ── Edit archive modal (corriger note / commentaire) ───
+let editArchiveTarget = null;
+let editSelectedStars = 0;
+
+function openEditArchiveModal(wine) {
+  editArchiveTarget = wine;
+  editSelectedStars = wine.note_sur_5 || 0;
+  document.getElementById('editArchiveNote').value = wine.note_degustation || '';
+  updateEditStarDisplay();
+  document.getElementById('modalEditArchive').classList.remove('hidden');
+}
+
+function updateEditStarDisplay() {
+  document.querySelectorAll('#starPickerEdit .star-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.star) <= editSelectedStars);
+  });
+}
+
+document.getElementById('starPickerEdit').addEventListener('click', e => {
+  const btn = e.target.closest('.star-btn');
+  if (!btn) return;
+  const val = parseInt(btn.dataset.star);
+  editSelectedStars = (editSelectedStars === val) ? 0 : val; // re-clic pour annuler
+  updateEditStarDisplay();
+});
+
+async function confirmEditArchive() {
+  if (!editArchiveTarget) return;
+  const note = document.getElementById('editArchiveNote').value.trim() || null;
+
+  const btn = document.getElementById('btnEditArchiveConfirm');
+  btn.textContent = 'Enregistrement…';
+  btn.disabled = true;
+
+  await db.from('wines_archive').update({
+    note_degustation: note,
+    note_sur_5: editSelectedStars > 0 ? editSelectedStars : null,
+  }).eq('id', editArchiveTarget.id);
+
+  btn.textContent = 'Enregistrer';
+  btn.disabled = false;
+
+  closeModal('modalEditArchive');
+  closeModal('modalDetail');
+  showToast('Dégustation mise à jour 🍷');
+  editArchiveTarget = null;
+  await loadArchive();
+}
+
+document.getElementById('btnEditArchiveConfirm').addEventListener('click', confirmEditArchive);
+document.getElementById('btnEditArchiveCancel').addEventListener('click', () => {
+  closeModal('modalEditArchive');
+  editArchiveTarget = null;
 });
 
 // ── Form modal ────────────────────────────────────────
