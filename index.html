@@ -1103,6 +1103,8 @@
         <option value="millesime_asc">Millésime (ancien → récent)</option>
         <option value="prix_desc">Prix (élevé → faible)</option>
         <option value="prix_asc">Prix (faible → élevé)</option>
+        <option value="note_desc">Note (meilleure → moins bonne)</option>
+        <option value="note_asc">Note (moins bonne → meilleure)</option>
         <option value="nom">Nom (A → Z)</option>
       </select>
     </div>
@@ -1915,6 +1917,10 @@ function sortArchive(list) {
       return sorted.sort((a,b) => (b.prix_achat || 0) - (a.prix_achat || 0));
     case 'prix_asc':
       return sorted.sort((a,b) => (a.prix_achat || 0) - (b.prix_achat || 0));
+    case 'note_desc':
+      return sorted.sort((a,b) => (b.note_sur_5 || 0) - (a.note_sur_5 || 0));
+    case 'note_asc':
+      return sorted.sort((a,b) => (a.note_sur_5 || 0) - (b.note_sur_5 || 0));
     case 'nom':
       return sorted.sort((a,b) => a.nom.localeCompare(b.nom));
     case 'bu_desc':
