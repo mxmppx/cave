@@ -883,6 +883,17 @@
       line-height: 1.4;
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast-undo-btn {
+      margin-left: 10px;
+      background: none;
+      border: none;
+      color: var(--gold);
+      font-weight: 700;
+      font-size: 13px;
+      text-decoration: underline;
+      cursor: pointer;
+      padding: 0;
+    }
 
     /* ── Visionneuse photo plein écran ───────────── */
     .image-viewer {
@@ -957,6 +968,7 @@
       <h1>Ma <span>cave</span></h1>
     </div>
     <div style="display:flex;gap:8px">
+      <button class="btn-theme" id="btnExport" aria-label="Exporter mes données">📤</button>
       <button class="btn-theme" id="btnLogout" aria-label="Déconnexion" onclick="logout()">🔒</button>
       <button class="btn-theme" id="btnTheme" aria-label="Thème">🌙</button>
     </div>
@@ -1272,6 +1284,58 @@
     <div class="form-actions">
       <button class="btn-cancel" id="btnArchiveCancel">Annuler</button>
       <button class="btn-save" id="btnArchiveConfirm">Archiver</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL : MODIFIER NOTE (historique) ───────────── -->
+<div class="modal-overlay hidden" id="modalEditArchive">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-close-bar"><button class="modal-close-btn" data-close-modal="modalEditArchive" aria-label="Fermer">✕</button></div>
+    <div class="modal-title">Modifier la dégustation ✏️</div>
+    <div class="form-group">
+      <label class="form-label">Bu le</label>
+      <input class="form-input" id="editArchiveDate" type="date" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Note</label>
+      <div class="star-picker" id="starPickerEdit">
+        <button class="star-btn" data-star="1">★</button>
+        <button class="star-btn" data-star="2">★</button>
+        <button class="star-btn" data-star="3">★</button>
+        <button class="star-btn" data-star="4">★</button>
+        <button class="star-btn" data-star="5">★</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Note de dégustation (optionnel)</label>
+      <textarea class="form-textarea" id="editArchiveNote" placeholder="Très bon, à racheter ! Tanins encore un peu fermes…"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Photo étiquette</label>
+      <label class="photo-upload" id="editArchivePhotoUploadLabel">
+        <span class="photo-upload-icon">📷</span>
+        <span id="editArchivePhotoUploadText">Appuyer pour ajouter</span>
+        <input type="file" id="editArchivePhoto" accept="image/*" />
+        <img id="editArchivePhotoPreview" style="display:none" alt="preview" />
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="btn-cancel" id="btnEditArchiveCancel">Annuler</button>
+      <button class="btn-save" id="btnEditArchiveConfirm">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL : EXPORT ────────────────────────────────── -->
+<div class="modal-overlay hidden" id="modalExport">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-close-bar"><button class="modal-close-btn" data-close-modal="modalExport" aria-label="Fermer">✕</button></div>
+    <div class="modal-title">Exporter mes données 📤</div>
+    <div class="form-actions" style="flex-direction:column;gap:8px;margin-top:8px">
+      <button class="btn-save" id="btnExportCaveCsv" style="flex:none;width:100%">📄 Cave (CSV)</button>
+      <button class="btn-save" id="btnExportHistoriqueCsv" style="flex:none;width:100%">📄 Historique (CSV)</button>
+      <button class="btn-save" id="btnExportJson" style="flex:none;width:100%">🗄 Sauvegarde complète (JSON)</button>
     </div>
   </div>
 </div>
@@ -2270,6 +2334,7 @@ function openArchiveDetail(id) {
     ${w.notes ? `<div class="detail-notes">📝 Notes d'origine : ${w.notes}</div>` : ''}
     ${w.note_degustation ? `<div class="detail-notes">💬 ${w.note_degustation}</div>` : ''}
     <div class="detail-actions">
+      <button class="btn-edit" id="btnEditArchiveNote">✏️ Modifier la note</button>
       <button class="btn-consume" id="btnRestoreCave">↩ Remettre en cave</button>
       <button class="btn-edit" id="btnDeleteArchive" style="background:var(--urgent)">🗑 Supprimer définitivement</button>
     </div>
@@ -2278,6 +2343,10 @@ function openArchiveDetail(id) {
   if (w.photo_url) {
     document.getElementById('detailPhotoZoom').addEventListener('click', () => openImageViewer(w.photo_url));
   }
+
+  document.getElementById('btnEditArchiveNote').addEventListener('click', () => {
+    openEditArchiveModal(w);
+  });
 
   document.getElementById('btnRestoreCave').addEventListener('click', async () => {
     if (!confirm(`Remettre "${w.nom}" dans la cave (${w.quantite_bue} bouteille${w.quantite_bue > 1 ? 's' : ''}) ?`)) return;
@@ -2318,13 +2387,28 @@ function openArchiveDetail(id) {
     await loadWines();
   });
 
-  document.getElementById('btnDeleteArchive').addEventListener('click', async () => {
-    if (!confirm(`Supprimer définitivement "${w.nom}" de l'historique ? Cette action est irréversible.`)) return;
-    await db.from('wines_archive').delete().eq('id', w.id);
+  document.getElementById('btnDeleteArchive').addEventListener('click', () => {
     closeModal('modalDetail');
-    showToast('Entrée supprimée de l\'historique');
-    await loadArchive();
+
+    // Suppression optimiste locale : le retrait en base n'a lieu qu'après le
+    // délai du toast, pour laisser la possibilité d'annuler.
+    archive = archive.filter(x => x.id !== w.id);
+    renderHistorique();
+    renderHistoriqueStats();
     renderCave(); // met à jour le compteur "déjà bu"
+
+    showUndoToast(
+      `"${w.nom}" supprimé de l'historique`,
+      () => {
+        archive.push(w);
+        renderHistorique();
+        renderHistoriqueStats();
+        renderCave();
+      },
+      async () => {
+        await db.from('wines_archive').delete().eq('id', w.id);
+      }
+    );
   });
 
   document.getElementById('modalDetail').classList.remove('hidden');
@@ -2404,6 +2488,136 @@ document.getElementById('btnArchiveConfirm').addEventListener('click', confirmAr
 document.getElementById('btnArchiveCancel').addEventListener('click', () => {
   closeModal('modalArchive');
   archiveTarget = null;
+});
+
+// ── Edit archive modal (corriger note / commentaire / photo / date) ───
+let editArchiveTarget = null;
+let editSelectedStars = 0;
+let editArchivePhotoFile = null;
+
+function openEditArchiveModal(wine) {
+  editArchiveTarget = wine;
+  editSelectedStars = wine.note_sur_5 || 0;
+  editArchivePhotoFile = null;
+  document.getElementById('editArchiveNote').value = wine.note_degustation || '';
+  document.getElementById('editArchiveDate').value = dateToInputValue(wine.date_consommation);
+  document.getElementById('editArchivePhoto').value = '';
+
+  const preview = document.getElementById('editArchivePhotoPreview');
+  if (wine.photo_url) {
+    preview.src = wine.photo_url;
+    preview.style.display = 'block';
+    document.getElementById('editArchivePhotoUploadText').textContent = '';
+  } else {
+    preview.style.display = 'none';
+    document.getElementById('editArchivePhotoUploadText').textContent = 'Appuyer pour ajouter';
+  }
+
+  updateEditStarDisplay();
+  document.getElementById('modalEditArchive').classList.remove('hidden');
+}
+
+document.getElementById('editArchivePhoto').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    showToast('Format de fichier non reconnu comme image');
+    return;
+  }
+
+  editArchivePhotoFile = file;
+  const reader = new FileReader();
+
+  reader.onload = ev => {
+    const preview = document.getElementById('editArchivePhotoPreview');
+    preview.src = ev.target.result;
+    preview.style.display = 'block';
+    document.getElementById('editArchivePhotoUploadText').textContent = '';
+  };
+
+  reader.onerror = () => {
+    console.error('FileReader error:', reader.error);
+    showToast('Impossible de lire cette image, réessayez');
+    editArchivePhotoFile = null;
+  };
+
+  try {
+    reader.readAsDataURL(file);
+  } catch (err) {
+    console.error('readAsDataURL threw:', err);
+    showToast('Erreur lors du chargement de la photo');
+    editArchivePhotoFile = null;
+  }
+});
+
+// Convertit un ISO stocké en base vers le format attendu par <input type="date"> (heure locale)
+function dateToInputValue(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+function updateEditStarDisplay() {
+  document.querySelectorAll('#starPickerEdit .star-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.star) <= editSelectedStars);
+  });
+}
+
+document.getElementById('starPickerEdit').addEventListener('click', e => {
+  const btn = e.target.closest('.star-btn');
+  if (!btn) return;
+  const val = parseInt(btn.dataset.star);
+  editSelectedStars = (editSelectedStars === val) ? 0 : val; // re-clic pour annuler
+  updateEditStarDisplay();
+});
+
+async function confirmEditArchive() {
+  if (!editArchiveTarget) return;
+  const note = document.getElementById('editArchiveNote').value.trim() || null;
+  const dateValue = document.getElementById('editArchiveDate').value;
+  const dateConsommation = dateValue ? new Date(`${dateValue}T12:00:00`).toISOString() : editArchiveTarget.date_consommation;
+
+  const btn = document.getElementById('btnEditArchiveConfirm');
+  btn.textContent = 'Enregistrement…';
+  btn.disabled = true;
+
+  const payload = {
+    note_degustation: note,
+    note_sur_5: editSelectedStars > 0 ? editSelectedStars : null,
+    date_consommation: dateConsommation,
+  };
+
+  if (editArchivePhotoFile) {
+    const ext = editArchivePhotoFile.name.split('.').pop();
+    const path = `${Date.now()}.${ext}`;
+    const { error: upErr } = await db.storage.from('wine-labels').upload(path, editArchivePhotoFile, { upsert: true });
+    if (!upErr) {
+      const { data: urlData } = db.storage.from('wine-labels').getPublicUrl(path);
+      payload.photo_url = urlData.publicUrl;
+    } else {
+      console.error(upErr);
+      showToast('Erreur lors de l\'upload de la photo');
+    }
+  }
+
+  await db.from('wines_archive').update(payload).eq('id', editArchiveTarget.id);
+
+  btn.textContent = 'Enregistrer';
+  btn.disabled = false;
+
+  closeModal('modalEditArchive');
+  closeModal('modalDetail');
+  showToast('Dégustation mise à jour 🍷');
+  editArchiveTarget = null;
+  await loadArchive();
+}
+
+document.getElementById('btnEditArchiveConfirm').addEventListener('click', confirmEditArchive);
+document.getElementById('btnEditArchiveCancel').addEventListener('click', () => {
+  closeModal('modalEditArchive');
+  editArchiveTarget = null;
 });
 
 // ── Form modal ────────────────────────────────────────
@@ -2915,11 +3129,120 @@ document.addEventListener('keydown', e => {
 
 // ── Toast ─────────────────────────────────────────────
 function showToast(msg) {
+  if (pendingUndo) { clearTimeout(pendingUndo.timer); pendingUndo.onCommit(); pendingUndo = null; }
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2500);
 }
+
+// Toast avec action "Annuler" : exécute onCommit après delayMs, sauf annulation
+let pendingUndo = null; // { timer, onCommit }
+
+function showUndoToast(msg, onUndo, onCommit, delayMs = 5000) {
+  if (pendingUndo) { clearTimeout(pendingUndo.timer); pendingUndo.onCommit(); pendingUndo = null; }
+
+  const t = document.getElementById('toast');
+  t.innerHTML = `<span></span><button class="toast-undo-btn" id="toastUndoBtn">Annuler</button>`;
+  t.querySelector('span').textContent = msg;
+  t.classList.add('show');
+
+  const timer = setTimeout(() => {
+    t.classList.remove('show');
+    pendingUndo = null;
+    onCommit();
+  }, delayMs);
+
+  pendingUndo = { timer, onCommit };
+
+  document.getElementById('toastUndoBtn').addEventListener('click', () => {
+    clearTimeout(timer);
+    pendingUndo = null;
+    t.classList.remove('show');
+    onUndo();
+  });
+}
+
+// ── Export ────────────────────────────────────────────
+function downloadFile(filename, content, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function csvCell(v) {
+  const s = v === null || v === undefined ? '' : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function toCsv(rows, headers) {
+  const lines = [headers.map(h => csvCell(h.label)).join(',')];
+  rows.forEach(row => {
+    lines.push(headers.map(h => csvCell(row[h.key])).join(','));
+  });
+  return '﻿' + lines.join('\r\n'); // BOM pour un bon rendu des accents dans Excel
+}
+
+const CAVE_CSV_HEADERS = [
+  { key: 'nom', label: 'Nom' },
+  { key: 'domaine', label: 'Domaine' },
+  { key: 'millesime', label: 'Millésime' },
+  { key: 'region', label: 'Région' },
+  { key: 'pays', label: 'Pays' },
+  { key: 'couleur', label: 'Couleur' },
+  { key: 'cepage', label: 'Cépage' },
+  { key: 'quantite', label: 'Quantité' },
+  { key: 'prix_achat', label: 'Prix unitaire (CHF)' },
+  { key: 'boire_a_partir_de', label: 'Boire à partir de' },
+  { key: 'boire_avant', label: 'Boire avant' },
+  { key: 'notes', label: 'Notes' },
+];
+
+const HISTORIQUE_CSV_HEADERS = [
+  { key: 'nom', label: 'Nom' },
+  { key: 'domaine', label: 'Domaine' },
+  { key: 'millesime', label: 'Millésime' },
+  { key: 'region', label: 'Région' },
+  { key: 'pays', label: 'Pays' },
+  { key: 'couleur', label: 'Couleur' },
+  { key: 'cepage', label: 'Cépage' },
+  { key: 'quantite_bue', label: 'Quantité bue' },
+  { key: 'prix_achat', label: 'Prix unitaire (CHF)' },
+  { key: 'date_consommation', label: 'Bu le' },
+  { key: 'note_sur_5', label: 'Note (/5)' },
+  { key: 'note_degustation', label: 'Commentaire de dégustation' },
+  { key: 'notes', label: 'Notes d\'origine' },
+];
+
+function todayStamp() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+document.getElementById('btnExport').addEventListener('click', () => {
+  document.getElementById('modalExport').classList.remove('hidden');
+});
+
+document.getElementById('btnExportCaveCsv').addEventListener('click', () => {
+  downloadFile(`ma-cave-${todayStamp()}.csv`, toCsv(wines, CAVE_CSV_HEADERS), 'text/csv;charset=utf-8');
+  closeModal('modalExport');
+});
+
+document.getElementById('btnExportHistoriqueCsv').addEventListener('click', () => {
+  downloadFile(`historique-${todayStamp()}.csv`, toCsv(archive, HISTORIQUE_CSV_HEADERS), 'text/csv;charset=utf-8');
+  closeModal('modalExport');
+});
+
+document.getElementById('btnExportJson').addEventListener('click', () => {
+  const data = { exporte_le: new Date().toISOString(), cave: wines, historique: archive };
+  downloadFile(`cave-sauvegarde-${todayStamp()}.json`, JSON.stringify(data, null, 2), 'application/json;charset=utf-8');
+  closeModal('modalExport');
+});
 
 // ── Init ──────────────────────────────────────────────
 (async () => {
