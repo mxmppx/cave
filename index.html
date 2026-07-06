@@ -2997,13 +2997,15 @@ CEPAGE: [cépage(s) — voir règle ci-dessous]
 COULEUR: [un seul mot parmi : rouge, blanc, rosé, pétillant]
 BOIRE_DES: [année à 4 chiffres]
 BOIRE_AVANT: [année à 4 chiffres]
+PRIX_CHF: [prix en francs suisses]
 
 Règles pour chaque champ :
 - NOM, DOMAINE, MILLESIME, REGION, PAYS, COULEUR : lis-les directement sur l'étiquette. Si une info n'est pas visible, laisse la valeur vide.
 - CEPAGE : si le cépage n'est pas écrit explicitement sur l'étiquette, déduis-le à partir de l'appellation et de la région (ex: un Chablis est en Chardonnay, un Gevrey-Chambertin est en Pinot Noir, un Côtes-de-Provence rosé est souvent Grenache/Cinsault/Syrah). Indique le ou les cépages les plus probables. Si vraiment aucune déduction fiable n'est possible, laisse vide plutôt que d'inventer.
 - BOIRE_DES et BOIRE_AVANT : estime la fenêtre de dégustation optimale en te basant sur le type de vin, la région, le millésime et le potentiel de garde habituel de ce style de vin (ex: un Beaujolais primeur se boit jeune, un grand Bordeaux ou un Barolo peut se garder 10-20 ans). Base-toi sur tes connaissances générales d'œnologie, pas sur l'étiquette elle-même.
+- PRIX_CHF : cherche en ligne ce vin (même nom, domaine et millésime) chez des vendeurs ou cavistes basés en Suisse (ex: Mövenpick Wein, Globus Vins, Denner, Coop, Conforama Vins, Vinatura, Ma Cave à Vin, Gerstl, etc.) et indique le prix trouvé en chiffres uniquement (ex: 24.90). Si aucun vendeur suisse ne propose ce vin, estime un prix plausible en CHF à partir de vins comparables (même appellation, producteur ou gamme) et ajoute la mention "(estimation)" après le chiffre (ex: 18.50 (estimation)).
 
-Réponds avec EXACTEMENT ces 9 lignes, dans cet ordre, rien d'autre.`;
+Réponds avec EXACTEMENT ces 10 lignes, dans cet ordre, rien d'autre.`;
 
 document.getElementById('btnCopyPrompt').addEventListener('click', async () => {
   try {
@@ -3029,7 +3031,7 @@ function parseAiImportText(raw) {
   const fieldMap = {
     NOM: 'nom', DOMAINE: 'domaine', MILLESIME: 'millesime',
     REGION: 'region', PAYS: 'pays', CEPAGE: 'cepage', COULEUR: 'couleur',
-    BOIRE_DES: 'boireDes', BOIRE_AVANT: 'boireAvant',
+    BOIRE_DES: 'boireDes', BOIRE_AVANT: 'boireAvant', PRIX_CHF: 'prix',
   };
   const result = {};
   const lines = raw.split('\n');
@@ -3105,7 +3107,18 @@ document.getElementById('btnAiImportParse').addEventListener('click', () => {
     }
   }
 
-  showToast('Champs pré-remplis — vérifie et complète avant d’enregistrer ✓');
+  let prixEstime = false;
+  if (parsed.prix) {
+    const montant = parseFloat(parsed.prix.replace(',', '.').match(/[\d.]+/)?.[0]);
+    if (!isNaN(montant)) {
+      document.getElementById('fPrix').value = montant;
+      prixEstime = /estim/i.test(parsed.prix);
+    }
+  }
+
+  showToast(prixEstime
+    ? 'Champs pré-remplis — prix estimé (aucun vendeur suisse trouvé), vérifie avant d’enregistrer ✓'
+    : 'Champs pré-remplis — vérifie et complète avant d’enregistrer ✓');
 });
 
 // Fermeture par clic sur l'overlay
