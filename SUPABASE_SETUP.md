@@ -123,6 +123,17 @@ uploadés ont un nom horodaté imprévisible et ne sont pas listés dans
 l'app, mais un utilisateur qui devinerait une URL exacte pourrait y
 accéder. Non bloquant pour un usage familial, mais à garder en tête.
 
+## 6. Colonne "à boire avec" (accord mets-vin)
+
+Le filtre "À boire avec" (accords mets-vin) nécessite une colonne
+supplémentaire sur les deux tables. Sans elle, l'ajout/modification d'un
+vin renverra une erreur `column "accord_mets" does not exist`.
+
+```sql
+alter table public.wines add column accord_mets text;
+alter table public.wines_archive add column accord_mets text;
+```
+
 ## Checklist de vérification
 
 - [ ] Navigation privée → écran de login apparaît, aucune donnée visible
