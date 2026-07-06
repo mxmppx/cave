@@ -1030,6 +1030,12 @@
         <option value="tous">Tous les pays</option>
       </select>
     </div>
+    <div class="sort-row">
+      <span class="sort-label">À boire avec</span>
+      <select class="form-select sort-select" id="accordFilterSelect">
+        <option value="tous">Tous les accords</option>
+      </select>
+    </div>
     </div>
     <div class="wine-list" id="wineList">
       <div class="loading">Chargement…</div>
@@ -1062,6 +1068,12 @@
       <span class="sort-label">Pays</span>
       <select class="form-select sort-select" id="statsPaysFilterSelect">
         <option value="tous">Tous les pays</option>
+      </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">À boire avec</span>
+      <select class="form-select sort-select" id="statsAccordFilterSelect">
+        <option value="tous">Tous les accords</option>
       </select>
     </div>
     </div>
@@ -1124,6 +1136,12 @@
       <span class="sort-label">Pays</span>
       <select class="form-select sort-select" id="historiquePaysFilterSelect">
         <option value="tous">Tous les pays</option>
+      </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">À boire avec</span>
+      <select class="form-select sort-select" id="historiqueAccordFilterSelect">
+        <option value="tous">Tous les accords</option>
       </select>
     </div>
     </div>
@@ -1192,6 +1210,25 @@
         <option value="Viognier">
         <option value="Petite Arvine">
         <option value="Assemblage">
+      </datalist>
+    </div>
+
+    <div class="form-group span-2">
+      <label class="form-label">À boire avec</label>
+      <input class="form-input" id="fAccord" list="accordList" placeholder="Ex : Viande rouge, Fromage…" />
+      <datalist id="accordList">
+        <option value="Viande rouge">
+        <option value="Viande blanche">
+        <option value="Volaille">
+        <option value="Gibier">
+        <option value="Poisson">
+        <option value="Fruits de mer">
+        <option value="Fromage">
+        <option value="Charcuterie">
+        <option value="Apéritif">
+        <option value="Cuisine épicée">
+        <option value="Végétarien">
+        <option value="Dessert">
       </datalist>
     </div>
 
@@ -1572,7 +1609,13 @@ document.getElementById('paysFilterSelect').addEventListener('change', e => {
   renderCave();
 });
 
-// Découpe un champ cépage en cépages individuels (gère virgule, slash, "et", "&")
+let accordFilter = 'tous';
+document.getElementById('accordFilterSelect').addEventListener('change', e => {
+  accordFilter = e.target.value;
+  renderCave();
+});
+
+// Découpe une liste de tags (cépages, accords mets) séparés par virgule, slash, "et", "&"
 function splitCepages(cepageStr) {
   if (!cepageStr) return [];
   return cepageStr
@@ -1580,6 +1623,7 @@ function splitCepages(cepageStr) {
     .map(c => c.trim())
     .filter(Boolean);
 }
+const splitAccords = splitCepages;
 
 function updateCepageFilterOptions() {
   const select = document.getElementById('cepageFilterSelect');
@@ -1630,10 +1674,28 @@ function updatePaysFilterOptions() {
   }
 }
 
+function updateAccordFilterOptions() {
+  const select = document.getElementById('accordFilterSelect');
+  const allAccords = new Set();
+  wines.forEach(w => splitAccords(w.accord_mets).forEach(a => allAccords.add(a)));
+  const accords = [...allAccords].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Tous les accords</option>` +
+    accords.map(a => `<option value="${a}">${a}</option>`).join('');
+
+  if (accords.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    accordFilter = 'tous';
+  }
+}
+
 function renderCave() {
   updateCepageFilterOptions();
   updateRegionFilterOptions();
   updatePaysFilterOptions();
+  updateAccordFilterOptions();
 
   const list = document.getElementById('wineList');
   let filtered = wines.filter(w => {
@@ -1641,12 +1703,14 @@ function renderCave() {
     const matchCepage = cepageFilter === 'tous' || splitCepages(w.cepage).includes(cepageFilter);
     const matchRegion = regionFilter === 'tous' || w.region === regionFilter;
     const matchPays = paysFilter === 'tous' || w.pays === paysFilter;
+    const matchAccord = accordFilter === 'tous' || splitAccords(w.accord_mets).includes(accordFilter);
     const q = filterSearch.toLowerCase();
     const matchSearch = !q || w.nom.toLowerCase().includes(q)
       || (w.domaine || '').toLowerCase().includes(q)
       || (w.region || '').toLowerCase().includes(q)
-      || (w.cepage || '').toLowerCase().includes(q);
-    return matchCouleur && matchCepage && matchRegion && matchPays && matchSearch;
+      || (w.cepage || '').toLowerCase().includes(q)
+      || (w.accord_mets || '').toLowerCase().includes(q);
+    return matchCouleur && matchCepage && matchRegion && matchPays && matchAccord && matchSearch;
   });
 
   filtered = sortWines(filtered);
@@ -1666,6 +1730,7 @@ function renderCave() {
         <div class="wine-info">
           <div class="wine-name">${w.nom}</div>
           <div class="wine-sub">${sub || '—'}</div>
+          ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${w.accord_mets}</div>` : ''}
           ${dejaBu > 0 ? `<div class="wine-sub" style="font-size:11px;color:var(--gold);margin-top:2px">↻ déjà bu ${dejaBu}×</div>` : ''}
         </div>
         <div class="wine-right">
@@ -1685,6 +1750,7 @@ let statsColorFilter = 'tous';
 let statsCepageFilter = 'tous';
 let statsRegionFilter = 'tous';
 let statsPaysFilter = 'tous';
+let statsAccordFilter = 'tous';
 
 document.getElementById('statsColorFilters').addEventListener('click', e => {
   const chip = e.target.closest('.filter-chip');
@@ -1707,6 +1773,11 @@ document.getElementById('statsRegionFilterSelect').addEventListener('change', e 
 
 document.getElementById('statsPaysFilterSelect').addEventListener('change', e => {
   statsPaysFilter = e.target.value;
+  renderStats();
+});
+
+document.getElementById('statsAccordFilterSelect').addEventListener('change', e => {
+  statsAccordFilter = e.target.value;
   renderStats();
 });
 
@@ -1733,6 +1804,15 @@ function updateStatsFilterOptions() {
   paysSelect.innerHTML = `<option value="tous">Tous les pays</option>` +
     paysAvail.map(p => `<option value="${p}">${p}</option>`).join('');
   if (paysAvail.includes(prevPays)) { paysSelect.value = prevPays; } else { statsPaysFilter = 'tous'; }
+
+  const accordSelect = document.getElementById('statsAccordFilterSelect');
+  const allAccords = new Set();
+  wines.forEach(w => splitAccords(w.accord_mets).forEach(a => allAccords.add(a)));
+  const accordsAvail = [...allAccords].sort((a,b) => a.localeCompare(b));
+  const prevAccord = accordSelect.value;
+  accordSelect.innerHTML = `<option value="tous">Tous les accords</option>` +
+    accordsAvail.map(a => `<option value="${a}">${a}</option>`).join('');
+  if (accordsAvail.includes(prevAccord)) { accordSelect.value = prevAccord; } else { statsAccordFilter = 'tous'; }
 }
 
 function renderStats() {
@@ -1745,7 +1825,8 @@ function renderStats() {
     const matchCepage = statsCepageFilter === 'tous' || splitCepages(w.cepage).includes(statsCepageFilter);
     const matchRegion = statsRegionFilter === 'tous' || w.region === statsRegionFilter;
     const matchPays = statsPaysFilter === 'tous' || w.pays === statsPaysFilter;
-    return matchCouleur && matchCepage && matchRegion && matchPays;
+    const matchAccord = statsAccordFilter === 'tous' || splitAccords(w.accord_mets).includes(statsAccordFilter);
+    return matchCouleur && matchCepage && matchRegion && matchPays && matchAccord;
   });
 
   if (!filteredWines.length) {
@@ -1800,6 +1881,20 @@ function renderStats() {
       <span class="region-count">${n} btl</span>
     </div>`).join('');
 
+  const accordCounts = {};
+  filteredWines.forEach(w => {
+    splitAccords(w.accord_mets).forEach(a => {
+      accordCounts[a] = (accordCounts[a] || 0) + (w.quantite || 0);
+    });
+  });
+  const accords = Object.entries(accordCounts).sort((a,b) => b[1]-a[1]).slice(0, 8);
+
+  const accordRows = accords.map(([a, n]) => `
+    <div class="region-row">
+      <span class="region-name">${a}</span>
+      <span class="region-count">${n} btl</span>
+    </div>`).join('');
+
   grid.innerHTML = `
     <div class="stat-card">
       <div class="stat-label">Total bouteilles</div>
@@ -1835,6 +1930,11 @@ function renderStats() {
       <div class="stat-label">Par cépage</div>
       <div class="region-list">${cepageRows}</div>
     </div>` : ''}
+    ${accords.length ? `
+    <div class="stat-card full">
+      <div class="stat-label">Par accord mets</div>
+      <div class="region-list">${accordRows}</div>
+    </div>` : ''}
   `;
 }
 
@@ -1865,6 +1965,7 @@ function renderABoire() {
         <div class="wine-info">
           <div class="wine-name">${w.nom}</div>
           <div class="wine-sub">${sub || '—'}</div>
+          ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${w.accord_mets}</div>` : ''}
           ${fin ? `<div class="wine-sub" style="color:var(--urgent);font-size:11px;margin-top:2px">${fin}</div>` : ''}
         </div>
         <div class="wine-right">
@@ -1886,6 +1987,7 @@ let historiqueFilter = 'tous';
 let historiqueCepageFilter = 'tous';
 let historiqueRegionFilter = 'tous';
 let historiquePaysFilter = 'tous';
+let historiqueAccordFilter = 'tous';
 let historiqueCouleurFilter = 'tous';
 let historiqueSortMode = 'bu_desc';
 
@@ -1947,6 +2049,12 @@ document.getElementById('historiquePaysFilterSelect').addEventListener('change',
   renderHistorique();
 });
 
+document.getElementById('historiqueAccordFilterSelect').addEventListener('change', e => {
+  historiqueAccordFilter = e.target.value;
+  renderHistoriqueStats();
+  renderHistorique();
+});
+
 function updateHistoriqueCepageFilterOptions() {
   const select = document.getElementById('historiqueCepageFilterSelect');
   const allCepages = new Set();
@@ -1994,6 +2102,23 @@ function updateHistoriquePaysFilterOptions() {
   }
 }
 
+function updateHistoriqueAccordFilterOptions() {
+  const select = document.getElementById('historiqueAccordFilterSelect');
+  const allAccords = new Set();
+  archive.forEach(w => splitAccords(w.accord_mets).forEach(a => allAccords.add(a)));
+  const accords = [...allAccords].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Tous les accords</option>` +
+    accords.map(a => `<option value="${a}">${a}</option>`).join('');
+
+  if (accords.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    historiqueAccordFilter = 'tous';
+  }
+}
+
 async function loadArchive() {
   const list = document.getElementById('historiqueList');
   list.innerHTML = `<div class="loading">Chargement…</div>`;
@@ -2023,7 +2148,8 @@ function renderHistoriqueStats() {
     const matchCepage = historiqueCepageFilter === 'tous' || splitCepages(w.cepage).includes(historiqueCepageFilter);
     const matchRegion = historiqueRegionFilter === 'tous' || w.region === historiqueRegionFilter;
     const matchPays = historiquePaysFilter === 'tous' || w.pays === historiquePaysFilter;
-    return matchFavoris && matchCouleur && matchCepage && matchRegion && matchPays;
+    const matchAccord = historiqueAccordFilter === 'tous' || splitAccords(w.accord_mets).includes(historiqueAccordFilter);
+    return matchFavoris && matchCouleur && matchCepage && matchRegion && matchPays && matchAccord;
   });
 
   if (!filteredArchive.length) {
@@ -2079,6 +2205,20 @@ function renderHistoriqueStats() {
       <span class="region-count">${n} btl</span>
     </div>`).join('');
 
+  const accordCounts = {};
+  filteredArchive.forEach(w => {
+    splitAccords(w.accord_mets).forEach(a => {
+      accordCounts[a] = (accordCounts[a] || 0) + (w.quantite_bue || 0);
+    });
+  });
+  const accords = Object.entries(accordCounts).sort((a,b) => b[1]-a[1]).slice(0, 8);
+
+  const accordRows = accords.map(([a, n]) => `
+    <div class="region-row">
+      <span class="region-name">${a}</span>
+      <span class="region-count">${n} btl</span>
+    </div>`).join('');
+
   grid.innerHTML = `
     <div class="stat-card">
       <div class="stat-label">Bus cette année</div>
@@ -2114,6 +2254,11 @@ function renderHistoriqueStats() {
       <div class="stat-label">Par cépage</div>
       <div class="region-list">${cepageRows}</div>
     </div>` : ''}
+    ${accords.length ? `
+    <div class="stat-card full">
+      <div class="stat-label">Par accord mets</div>
+      <div class="region-list">${accordRows}</div>
+    </div>` : ''}
   `;
 }
 
@@ -2121,6 +2266,7 @@ function renderHistorique() {
   updateHistoriqueCepageFilterOptions();
   updateHistoriqueRegionFilterOptions();
   updateHistoriquePaysFilterOptions();
+  updateHistoriqueAccordFilterOptions();
 
   const list = document.getElementById('historiqueList');
 
@@ -2130,13 +2276,15 @@ function renderHistorique() {
     const matchCepage = historiqueCepageFilter === 'tous' || splitCepages(w.cepage).includes(historiqueCepageFilter);
     const matchRegion = historiqueRegionFilter === 'tous' || w.region === historiqueRegionFilter;
     const matchPays = historiquePaysFilter === 'tous' || w.pays === historiquePaysFilter;
+    const matchAccord = historiqueAccordFilter === 'tous' || splitAccords(w.accord_mets).includes(historiqueAccordFilter);
     const q = historiqueSearch.toLowerCase();
     const matchSearch = !q || w.nom.toLowerCase().includes(q)
       || (w.domaine || '').toLowerCase().includes(q)
       || (w.region || '').toLowerCase().includes(q)
       || (w.cepage || '').toLowerCase().includes(q)
+      || (w.accord_mets || '').toLowerCase().includes(q)
       || (w.note_degustation || '').toLowerCase().includes(q);
-    return matchFavoris && matchCouleur && matchCepage && matchRegion && matchPays && matchSearch;
+    return matchFavoris && matchCouleur && matchCepage && matchRegion && matchPays && matchAccord && matchSearch;
   });
 
   filtered = sortArchive(filtered);
@@ -2157,6 +2305,7 @@ function renderHistorique() {
         <div class="wine-info">
           <div class="wine-name">${w.nom}</div>
           <div class="wine-sub">${sub || '—'}</div>
+          ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${w.accord_mets}</div>` : ''}
           ${starsHtml(w.note_sur_5)}
           ${w.note_degustation ? `<div class="wine-sub" style="font-style:italic;margin-top:2px">💬 ${w.note_degustation}</div>` : ''}
         </div>
@@ -2248,6 +2397,11 @@ function openDetail(id) {
         <div class="detail-item-label">Fenêtre de dégustation</div>
         <div class="detail-item-value">${fenetre}</div>
       </div>
+      ${w.accord_mets ? `
+      <div class="detail-item" style="grid-column:1/-1">
+        <div class="detail-item-label">À boire avec</div>
+        <div class="detail-item-value">🍽️ ${w.accord_mets}</div>
+      </div>` : ''}
     </div>
     ${w.notes ? `<div class="detail-notes">💬 ${w.notes}</div>` : ''}
     <div class="detail-actions">
@@ -2336,6 +2490,11 @@ function openArchiveDetail(id) {
         <div class="detail-item-label">Bu le</div>
         <div class="detail-item-value">${date}</div>
       </div>
+      ${w.accord_mets ? `
+      <div class="detail-item" style="grid-column:1/-1">
+        <div class="detail-item-label">À boire avec</div>
+        <div class="detail-item-value">🍽️ ${w.accord_mets}</div>
+      </div>` : ''}
     </div>
     ${w.notes ? `<div class="detail-notes">📝 Notes d'origine : ${w.notes}</div>` : ''}
     ${w.note_degustation ? `<div class="detail-notes">💬 ${w.note_degustation}</div>` : ''}
@@ -2376,6 +2535,7 @@ function openArchiveDetail(id) {
         pays: w.pays,
         couleur: w.couleur,
         cepage: w.cepage,
+        accord_mets: w.accord_mets,
         prix_achat: w.prix_achat,
         quantite: w.quantite_bue,
         boire_a_partir_de: w.boire_a_partir_de,
@@ -2463,6 +2623,7 @@ async function confirmArchive() {
     pays: w.pays,
     couleur: w.couleur,
     cepage: w.cepage,
+    accord_mets: w.accord_mets,
     prix_achat: w.prix_achat,
     quantite_bue: quantiteBue,
     boire_a_partir_de: w.boire_a_partir_de,
@@ -2641,7 +2802,7 @@ function openForm(id = null) {
   document.getElementById('btnScanLabel').classList.add('hidden');
   document.getElementById('fPhoto').value = ''; // reset pour garantir le déclenchement de 'change' même en ressélectionnant le même fichier
 
-  const fields = { fNom:'', fDomaine:'', fMillesime:'', fRegion:'', fPays:'France', fCepage:'', fQuantite:1, fBoireDepuis:'', fBoireAvant:'', fPrix:'', fNotes:'' };
+  const fields = { fNom:'', fDomaine:'', fMillesime:'', fRegion:'', fPays:'France', fCepage:'', fAccord:'', fQuantite:1, fBoireDepuis:'', fBoireAvant:'', fPrix:'', fNotes:'' };
 
   if (id) {
     const w = wines.find(x => x.id === id);
@@ -2652,6 +2813,7 @@ function openForm(id = null) {
       fields.fRegion    = w.region || '';
       fields.fPays      = w.pays || 'France';
       fields.fCepage    = w.cepage || '';
+      fields.fAccord    = w.accord_mets || '';
       fields.fQuantite  = w.quantite ?? 1;
       fields.fBoireDepuis = w.boire_a_partir_de || '';
       fields.fBoireAvant  = w.boire_avant || '';
@@ -2824,6 +2986,7 @@ function buildWinePayload(nom) {
     region:             document.getElementById('fRegion').value.trim() || null,
     pays:               document.getElementById('fPays').value.trim() || 'France',
     cepage:             document.getElementById('fCepage').value.trim() || null,
+    accord_mets:        document.getElementById('fAccord').value.trim() || null,
     couleur:            selectedCouleur,
     quantite:           parseInt(document.getElementById('fQuantite').value) || 1,
     boire_a_partir_de:  parseInt(document.getElementById('fBoireDepuis').value) || null,
@@ -2880,6 +3043,7 @@ function openDuplicateModal(existing, newPayload) {
       <div class="dup-row"><span>Millésime</span><b>${w.millesime || '—'}</b></div>
       <div class="dup-row"><span>Région</span><b>${w.region || '—'}</b></div>
       <div class="dup-row"><span>Cépage</span><b>${w.cepage || '—'}</b></div>
+      <div class="dup-row"><span>À boire avec</span><b>${w.accord_mets || '—'}</b></div>
       <div class="dup-row"><span>Couleur</span><b>${w.couleur || '—'}</b></div>
       <div class="dup-row"><span>Quantité</span><b>${w.quantite}</b></div>
       <div class="dup-row"><span>Prix</span><b>${w.prix_achat ? w.prix_achat + ' CHF' : '—'}</b></div>
@@ -2997,15 +3161,17 @@ CEPAGE: [cépage(s) — voir règle ci-dessous]
 COULEUR: [un seul mot parmi : rouge, blanc, rosé, pétillant]
 BOIRE_DES: [année à 4 chiffres]
 BOIRE_AVANT: [année à 4 chiffres]
+ACCORD_METS: [2 à 4 suggestions d'accords mets-vin, séparées par des virgules — voir règle ci-dessous]
 PRIX_CHF: [prix en francs suisses]
 
 Règles pour chaque champ :
 - NOM, DOMAINE, MILLESIME, REGION, PAYS, COULEUR : lis-les directement sur l'étiquette. Si une info n'est pas visible, laisse la valeur vide.
 - CEPAGE : si le cépage n'est pas écrit explicitement sur l'étiquette, déduis-le à partir de l'appellation et de la région (ex: un Chablis est en Chardonnay, un Gevrey-Chambertin est en Pinot Noir, un Côtes-de-Provence rosé est souvent Grenache/Cinsault/Syrah). Indique le ou les cépages les plus probables. Si vraiment aucune déduction fiable n'est possible, laisse vide plutôt que d'inventer.
 - BOIRE_DES et BOIRE_AVANT : estime la fenêtre de dégustation optimale en te basant sur le type de vin, la région, le millésime et le potentiel de garde habituel de ce style de vin (ex: un Beaujolais primeur se boit jeune, un grand Bordeaux ou un Barolo peut se garder 10-20 ans). Base-toi sur tes connaissances générales d'œnologie, pas sur l'étiquette elle-même.
+- ACCORD_METS : en te basant sur la couleur, le cépage et le style du vin, indique avec quoi il se marie le mieux. Choisis de préférence parmi : Viande rouge, Viande blanche, Volaille, Gibier, Poisson, Fruits de mer, Fromage, Charcuterie, Apéritif, Cuisine épicée, Végétarien, Dessert. Tu peux préciser entre parenthèses si utile (ex: "Fromage (chèvre)").
 - PRIX_CHF : cherche en ligne ce vin (même nom, domaine et millésime) chez des vendeurs ou cavistes basés en Suisse (ex: Mövenpick Wein, Globus Vins, Denner, Coop, Conforama Vins, Vinatura, Ma Cave à Vin, Gerstl, etc.) et indique le prix trouvé en chiffres uniquement (ex: 24.90). Si aucun vendeur suisse ne propose ce vin, estime un prix plausible en CHF à partir de vins comparables (même appellation, producteur ou gamme) et ajoute la mention "(estimation)" après le chiffre (ex: 18.50 (estimation)).
 
-Réponds avec EXACTEMENT ces 10 lignes, dans cet ordre, rien d'autre.`;
+Réponds avec EXACTEMENT ces 11 lignes, dans cet ordre, rien d'autre.`;
 
 document.getElementById('btnCopyPrompt').addEventListener('click', async () => {
   try {
@@ -3031,7 +3197,7 @@ function parseAiImportText(raw) {
   const fieldMap = {
     NOM: 'nom', DOMAINE: 'domaine', MILLESIME: 'millesime',
     REGION: 'region', PAYS: 'pays', CEPAGE: 'cepage', COULEUR: 'couleur',
-    BOIRE_DES: 'boireDes', BOIRE_AVANT: 'boireAvant', PRIX_CHF: 'prix',
+    BOIRE_DES: 'boireDes', BOIRE_AVANT: 'boireAvant', ACCORD_METS: 'accordMets', PRIX_CHF: 'prix',
   };
   const result = {};
   const lines = raw.split('\n');
@@ -3081,6 +3247,7 @@ document.getElementById('btnAiImportParse').addEventListener('click', () => {
   if (parsed.region)    document.getElementById('fRegion').value = parsed.region;
   if (parsed.pays)      document.getElementById('fPays').value = parsed.pays;
   if (parsed.cepage)    document.getElementById('fCepage').value = parsed.cepage;
+  if (parsed.accordMets) document.getElementById('fAccord').value = parsed.accordMets;
 
   if (parsed.millesime) {
     const year = parseInt(parsed.millesime.match(/\d{4}/)?.[0]);
