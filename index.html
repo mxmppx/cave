@@ -232,18 +232,18 @@
     /* ── Filters (cave view) ─────────────────────── */
     .filters {
       display: flex;
-      gap: 7px;
+      gap: 6px;
       overflow-x: auto;
-      padding-bottom: 8px;
+      padding-bottom: 6px;
       margin-bottom: 2px;
       scrollbar-width: none;
     }
     .filters::-webkit-scrollbar { display: none; }
     .filter-chip {
       flex-shrink: 0;
-      padding: 5px 12px;
+      padding: 4px 10px;
       border-radius: 99px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       border: 1.5px solid var(--border);
       color: var(--text-muted);
@@ -284,36 +284,40 @@
     }
     .btn-ai-action:hover { background: var(--surface2); }
     .filters-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-bottom: 14px;
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding-bottom: 2px;
     }
-    @media (min-width: 560px) {
-      .filters-grid { grid-template-columns: repeat(4, 1fr); }
-    }
+    .filters-grid::-webkit-scrollbar { display: none; }
     .sort-row {
       display: flex;
       flex-direction: column;
-      gap: 3px;
-      min-width: 0;
+      gap: 2px;
+      width: 118px;
+      flex: 0 0 118px;
     }
     .sort-label {
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 700;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.03em;
       text-transform: uppercase;
       color: var(--text-muted);
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .sort-select {
       width: 100%;
       max-width: none;
       height: auto;
-      padding: 7px 28px 7px 10px;
-      font-size: 12px;
-      background-position: right 8px center;
-      background-size: 10px;
+      padding: 6px 20px 6px 8px;
+      font-size: 11px;
+      background-position: right 6px center;
+      background-size: 9px;
+      text-overflow: ellipsis;
     }
     .search-input {
       flex: 1;
