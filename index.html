@@ -1086,6 +1086,9 @@
 
   <!-- ── TAB : À BOIRE ─────────────────────────── -->
   <div class="section hidden" id="tab-a-boire">
+    <div class="search-row">
+      <input class="search-input" type="search" placeholder="Rechercher..." id="aBoireSearch" />
+    </div>
     <div class="filters" id="aBoireColorFilters">
       <button class="filter-chip active" data-filter="tous">Tous</button>
       <button class="filter-chip" data-filter="rouge">🍷 Rouge</button>
@@ -1986,12 +1989,18 @@ function renderStats() {
 }
 
 // ── Render à boire ────────────────────────────────────
+let aBoireSearch = '';
 let aBoireColorFilter = 'tous';
 let aBoireSortMode = 'echeance';
 let aBoireCepageFilter = 'tous';
 let aBoireRegionFilter = 'tous';
 let aBoirePaysFilter = 'tous';
 let aBoireAccordFilter = 'tous';
+
+document.getElementById('aBoireSearch').addEventListener('input', e => {
+  aBoireSearch = e.target.value;
+  renderABoire();
+});
 
 document.getElementById('aBoireColorFilters').addEventListener('click', e => {
   const chip = e.target.closest('.filter-chip');
@@ -2135,7 +2144,13 @@ function renderABoire() {
     const matchRegion = aBoireRegionFilter === 'tous' || w.region === aBoireRegionFilter;
     const matchPays = aBoirePaysFilter === 'tous' || w.pays === aBoirePaysFilter;
     const matchAccord = aBoireAccordFilter === 'tous' || splitAccords(w.accord_mets).includes(aBoireAccordFilter);
-    return matchCouleur && matchCepage && matchRegion && matchPays && matchAccord;
+    const q = aBoireSearch.toLowerCase();
+    const matchSearch = !q || w.nom.toLowerCase().includes(q)
+      || (w.domaine || '').toLowerCase().includes(q)
+      || (w.region || '').toLowerCase().includes(q)
+      || (w.cepage || '').toLowerCase().includes(q)
+      || (w.accord_mets || '').toLowerCase().includes(q);
+    return matchCouleur && matchCepage && matchRegion && matchPays && matchAccord && matchSearch;
   });
 
   filtered = sortABoire(filtered);
