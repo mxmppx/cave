@@ -232,18 +232,18 @@
     /* ── Filters (cave view) ─────────────────────── */
     .filters {
       display: flex;
-      gap: 7px;
+      gap: 6px;
       overflow-x: auto;
-      padding-bottom: 8px;
+      padding-bottom: 6px;
       margin-bottom: 2px;
       scrollbar-width: none;
     }
     .filters::-webkit-scrollbar { display: none; }
     .filter-chip {
       flex-shrink: 0;
-      padding: 5px 12px;
+      padding: 4px 10px;
       border-radius: 99px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       border: 1.5px solid var(--border);
       color: var(--text-muted);
@@ -284,36 +284,38 @@
     }
     .btn-ai-action:hover { background: var(--surface2); }
     .filters-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-    @media (min-width: 560px) {
-      .filters-grid { grid-template-columns: repeat(4, 1fr); }
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
     }
     .sort-row {
       display: flex;
       flex-direction: column;
-      gap: 3px;
-      min-width: 0;
+      gap: 2px;
+      flex: 1 1 118px;
+      min-width: 118px;
+      max-width: 220px;
     }
     .sort-label {
       font-size: 10px;
       font-weight: 700;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.03em;
       text-transform: uppercase;
       color: var(--text-muted);
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .sort-select {
+    select.sort-select {
       width: 100%;
       max-width: none;
       height: auto;
-      padding: 7px 28px 7px 10px;
+      padding: 6px 22px 6px 8px;
       font-size: 12px;
-      background-position: right 8px center;
-      background-size: 10px;
+      background-position: right 6px center;
+      background-size: 9px;
+      text-overflow: ellipsis;
     }
     .search-input {
       flex: 1;
@@ -1084,7 +1086,47 @@
 
   <!-- ── TAB : À BOIRE ─────────────────────────── -->
   <div class="section hidden" id="tab-a-boire">
+    <div class="search-row">
+      <input class="search-input" type="search" placeholder="Rechercher..." id="aBoireSearch" />
+    </div>
+    <div class="filters" id="aBoireColorFilters">
+      <button class="filter-chip active" data-filter="tous">Tous</button>
+      <button class="filter-chip" data-filter="rouge">🍷 Rouge</button>
+      <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
+      <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
+      <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
+    </div>
     <div class="filters-grid">
+    <div class="sort-row">
+      <span class="sort-label">Trier par</span>
+      <select class="form-select sort-select" id="aBoireSortSelect">
+        <option value="echeance" selected>Échéance</option>
+        <option value="millesime_desc">Millésime (récent → ancien)</option>
+        <option value="millesime_asc">Millésime (ancien → récent)</option>
+        <option value="prix_desc">Prix (élevé → faible)</option>
+        <option value="prix_asc">Prix (faible → élevé)</option>
+        <option value="ajout_desc">Date d'ajout (récent)</option>
+        <option value="nom">Nom (A → Z)</option>
+      </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">Cépage</span>
+      <select class="form-select sort-select" id="aBoireCepageFilterSelect">
+        <option value="tous">Tous les cépages</option>
+      </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">Région</span>
+      <select class="form-select sort-select" id="aBoireRegionFilterSelect">
+        <option value="tous">Toutes les régions</option>
+      </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">Pays</span>
+      <select class="form-select sort-select" id="aBoirePaysFilterSelect">
+        <option value="tous">Tous les pays</option>
+      </select>
+    </div>
     <div class="sort-row">
       <span class="sort-label">À boire avec</span>
       <select class="form-select sort-select" id="aBoireAccordFilterSelect">
@@ -1947,11 +1989,99 @@ function renderStats() {
 }
 
 // ── Render à boire ────────────────────────────────────
+let aBoireSearch = '';
+let aBoireColorFilter = 'tous';
+let aBoireSortMode = 'echeance';
+let aBoireCepageFilter = 'tous';
+let aBoireRegionFilter = 'tous';
+let aBoirePaysFilter = 'tous';
 let aBoireAccordFilter = 'tous';
+
+document.getElementById('aBoireSearch').addEventListener('input', e => {
+  aBoireSearch = e.target.value;
+  renderABoire();
+});
+
+document.getElementById('aBoireColorFilters').addEventListener('click', e => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  document.querySelectorAll('#aBoireColorFilters .filter-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  aBoireColorFilter = chip.dataset.filter;
+  renderABoire();
+});
+
+document.getElementById('aBoireSortSelect').addEventListener('change', e => {
+  aBoireSortMode = e.target.value;
+  renderABoire();
+});
+
+document.getElementById('aBoireCepageFilterSelect').addEventListener('change', e => {
+  aBoireCepageFilter = e.target.value;
+  renderABoire();
+});
+
+document.getElementById('aBoireRegionFilterSelect').addEventListener('change', e => {
+  aBoireRegionFilter = e.target.value;
+  renderABoire();
+});
+
+document.getElementById('aBoirePaysFilterSelect').addEventListener('change', e => {
+  aBoirePaysFilter = e.target.value;
+  renderABoire();
+});
+
 document.getElementById('aBoireAccordFilterSelect').addEventListener('change', e => {
   aBoireAccordFilter = e.target.value;
   renderABoire();
 });
+
+function updateABoireCepageFilterOptions(prêts) {
+  const select = document.getElementById('aBoireCepageFilterSelect');
+  const allCepages = new Set();
+  prêts.forEach(w => splitCepages(w.cepage).forEach(c => allCepages.add(c)));
+  const cepages = [...allCepages].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Tous les cépages</option>` +
+    cepages.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  if (cepages.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    aBoireCepageFilter = 'tous';
+  }
+}
+
+function updateABoireRegionFilterOptions(prêts) {
+  const select = document.getElementById('aBoireRegionFilterSelect');
+  const regions = [...new Set(prêts.map(w => w.region).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Toutes les régions</option>` +
+    regions.map(r => `<option value="${r}">${r}</option>`).join('');
+
+  if (regions.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    aBoireRegionFilter = 'tous';
+  }
+}
+
+function updateABoirePaysFilterOptions(prêts) {
+  const select = document.getElementById('aBoirePaysFilterSelect');
+  const paysList = [...new Set(prêts.map(w => w.pays).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Tous les pays</option>` +
+    paysList.map(p => `<option value="${p}">${p}</option>`).join('');
+
+  if (paysList.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    aBoirePaysFilter = 'tous';
+  }
+}
 
 function updateABoireAccordFilterOptions(prêts) {
   const select = document.getElementById('aBoireAccordFilterSelect');
@@ -1970,30 +2100,67 @@ function updateABoireAccordFilterOptions(prêts) {
   }
 }
 
+function sortABoire(list) {
+  const sorted = [...list];
+  switch (aBoireSortMode) {
+    case 'millesime_desc':
+      return sorted.sort((a,b) => (b.millesime || 0) - (a.millesime || 0));
+    case 'millesime_asc':
+      return sorted.sort((a,b) => (a.millesime || 9999) - (b.millesime || 9999));
+    case 'prix_desc':
+      return sorted.sort((a,b) => (b.prix_achat || 0) - (a.prix_achat || 0));
+    case 'prix_asc':
+      return sorted.sort((a,b) => (a.prix_achat || 0) - (b.prix_achat || 0));
+    case 'ajout_desc':
+      return sorted.sort((a,b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    case 'nom':
+      return sorted.sort((a,b) => a.nom.localeCompare(b.nom));
+    case 'echeance':
+    default:
+      return sorted.sort((a,b) => {
+        const sa = getStatut(a), sb = getStatut(b);
+        if (sa === 'urgent' && sb !== 'urgent') return -1;
+        if (sb === 'urgent' && sa !== 'urgent') return 1;
+        return (a.boire_avant || 9999) - (b.boire_avant || 9999);
+      });
+  }
+}
+
 function renderABoire() {
   const list = document.getElementById('aBoireList');
   const prêts = wines.filter(w => {
     const s = getStatut(w);
     return s === 'pret' || s === 'urgent';
-  }).sort((a,b) => {
-    const sa = getStatut(a), sb = getStatut(b);
-    if (sa === 'urgent' && sb !== 'urgent') return -1;
-    if (sb === 'urgent' && sa !== 'urgent') return 1;
-    return (a.boire_avant || 9999) - (b.boire_avant || 9999);
   });
 
+  updateABoireCepageFilterOptions(prêts);
+  updateABoireRegionFilterOptions(prêts);
+  updateABoirePaysFilterOptions(prêts);
   updateABoireAccordFilterOptions(prêts);
 
-  const filtered = prêts.filter(w =>
-    aBoireAccordFilter === 'tous' || splitAccords(w.accord_mets).includes(aBoireAccordFilter)
-  );
+  let filtered = prêts.filter(w => {
+    const matchCouleur = aBoireColorFilter === 'tous' || w.couleur === aBoireColorFilter;
+    const matchCepage = aBoireCepageFilter === 'tous' || splitCepages(w.cepage).includes(aBoireCepageFilter);
+    const matchRegion = aBoireRegionFilter === 'tous' || w.region === aBoireRegionFilter;
+    const matchPays = aBoirePaysFilter === 'tous' || w.pays === aBoirePaysFilter;
+    const matchAccord = aBoireAccordFilter === 'tous' || splitAccords(w.accord_mets).includes(aBoireAccordFilter);
+    const q = aBoireSearch.toLowerCase();
+    const matchSearch = !q || w.nom.toLowerCase().includes(q)
+      || (w.domaine || '').toLowerCase().includes(q)
+      || (w.region || '').toLowerCase().includes(q)
+      || (w.cepage || '').toLowerCase().includes(q)
+      || (w.accord_mets || '').toLowerCase().includes(q);
+    return matchCouleur && matchCepage && matchRegion && matchPays && matchAccord && matchSearch;
+  });
+
+  filtered = sortABoire(filtered);
 
   if (!prêts.length) {
     list.innerHTML = `<div class="empty"><div class="empty-icon">⏳</div><h3>Rien à boire pour l'instant</h3><p>Vos vins ne sont pas encore prêts.</p></div>`;
     return;
   }
   if (!filtered.length) {
-    list.innerHTML = `<div class="empty"><div class="empty-icon">🍽️</div><h3>Aucun vin pour cet accord</h3><p>Essayez un autre accord mets-vin.</p></div>`;
+    list.innerHTML = `<div class="empty"><div class="empty-icon">🍽️</div><h3>Aucun vin pour ces filtres</h3><p>Essayez d'autres critères.</p></div>`;
     return;
   }
   list.innerHTML = filtered.map(w => {
