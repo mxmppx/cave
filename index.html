@@ -1581,7 +1581,7 @@ function statutBadge(statut) {
     pret:     ['badge-pret',     'Prêt'],
     attendre: ['badge-attendre', 'Attendre'],
     urgent:   ['badge-urgent',   'À boire !'],
-    passe:    ['badge-passe',    'Passé'],
+    passe:    ['badge-passe',    'Fenêtre dépassée'],
   };
   if (!statut) return '';
   const [cls, label] = map[statut];
@@ -2120,13 +2120,15 @@ function sortABoire(list) {
     case 'nom':
       return sorted.sort((a,b) => a.nom.localeCompare(b.nom));
     case 'echeance':
-    default:
+    default: {
+      const priorite = { passe: 0, urgent: 1, pret: 2, attendre: 3 };
       return sorted.sort((a,b) => {
-        const sa = getStatut(a), sb = getStatut(b);
-        if (sa === 'urgent' && sb !== 'urgent') return -1;
-        if (sb === 'urgent' && sa !== 'urgent') return 1;
+        const pa = priorite[getStatut(a)] ?? 4;
+        const pb = priorite[getStatut(b)] ?? 4;
+        if (pa !== pb) return pa - pb;
         return (a.boire_avant || 9999) - (b.boire_avant || 9999);
       });
+    }
   }
 }
 
@@ -2134,7 +2136,7 @@ function renderABoire() {
   const list = document.getElementById('aBoireList');
   const prêts = wines.filter(w => {
     const s = getStatut(w);
-    return s === 'pret' || s === 'urgent';
+    return s === 'pret' || s === 'urgent' || s === 'passe';
   });
 
   updateABoireCepageFilterOptions(prêts);
@@ -2170,7 +2172,7 @@ function renderABoire() {
   list.innerHTML = filtered.map(w => {
     const statut = getStatut(w);
     const sub = [w.domaine, w.millesime, w.cepage, w.region].filter(Boolean).join(' · ');
-    const fin = w.boire_avant ? `jusqu'en ${w.boire_avant}` : '';
+    const fin = w.boire_avant ? (statut === 'passe' ? `dépassé depuis ${w.boire_avant}` : `jusqu'en ${w.boire_avant}`) : '';
     return `
       <div class="wine-card" data-id="${w.id}">
         ${photoOrEmoji(w)}
