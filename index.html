@@ -3480,6 +3480,12 @@ document.getElementById('btnFormSave').addEventListener('click', async () => {
   if (!nom) { showToast('Le nom est requis'); return; }
   if (!selectedCouleur) { showToast('Sélectionnez une couleur'); return; }
 
+  const qtyRaw = document.getElementById('fQuantite').value;
+  if (qtyRaw !== '' && (!Number.isInteger(parseFloat(qtyRaw)) || parseInt(qtyRaw, 10) < 1)) {
+    showToast('La quantité doit être un nombre entier d\'au moins 1');
+    return;
+  }
+
   const payload = buildWinePayload(nom);
 
   // Détection de doublon uniquement en mode ajout (pas en édition)
