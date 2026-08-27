@@ -35,7 +35,6 @@
       --blanc:     #C8A84B;
       --rose:      #C4637A;
       --petillant: #3A7A6E;
-      --fortifie:  #5C3D7A;
       --pret:      #2D7A45;
       --attendre:  #8B6914;
       --urgent:    #B84B2A;
@@ -220,7 +219,6 @@
     .fill-blanc    { background: var(--blanc); }
     .fill-rose     { background: var(--rose); }
     .fill-petillant{ background: var(--petillant); }
-    .fill-fortifie { background: var(--fortifie); }
 
     /* ── Filters (cave view) ─────────────────────── */
     .filters {
@@ -503,7 +501,7 @@
         gap: 0 20px;
         align-items: start;
       }
-      .form-grid-desktop .form-group.span-2 { grid-column: 1 / -1; }
+      .form-grid-desktop .span-2 { grid-column: 1 / -1; }
       .form-group { margin-bottom: 10px; }
       .form-label { margin-bottom: 4px; font-size: 10px; }
       .form-input, .form-select, .form-textarea { padding: 9px 12px; font-size: 14px; }
@@ -570,6 +568,8 @@
     .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--gold); }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .form-row-achat { grid-template-columns: 1fr 1fr; }
+    .form-row-achat .form-group:last-child { grid-column: 1 / -1; }
 
     /* ── Colour picker ───────────────────────────── */
     .couleur-picker {
@@ -663,6 +663,12 @@
       font-size: 12px;
       color: var(--text-muted);
       text-align: center;
+    }
+    .scan-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin: -8px 0 16px;
+      line-height: 1.4;
     }
 
     /* ── Form actions ────────────────────────────── */
@@ -984,9 +990,10 @@
       <button class="btn-add" id="btnAdd">+ Ajouter</button>
     </div>
     <div class="ai-import-row">
-      <button class="btn-ai-action" id="btnCopyPrompt">📋 Copier le prompt IA</button>
-      <button class="btn-ai-action" id="btnImportAiResult">✨ Importer un vin (IA)</button>
+      <button class="btn-ai-action" id="btnCopyPrompt">📋 1. Copier le prompt IA</button>
+      <button class="btn-ai-action" id="btnImportAiResult">✨ 2. Coller le résultat</button>
     </div>
+    <div class="scan-hint">✨ Analyse complète (11 champs, dont fenêtre de dégustation, accords et prix) via une IA externe (photo + copier/coller). Pour une saisie rapide sans quitter l'app, utilisez plutôt la lecture locale dans le formulaire d'ajout (nom, millésime, région, pays).</div>
     <div class="filters" id="colorFilters">
       <button class="filter-chip active" data-filter="tous">Tous</button>
       <button class="filter-chip" data-filter="rouge">🍷 Rouge</button>
@@ -1039,46 +1046,97 @@
 
   <!-- ── TAB : STATS ────────────────────────────── -->
   <div class="section hidden" id="tab-stats">
-    <div class="filters" id="statsColorFilters">
-      <button class="filter-chip active" data-filter="tous">Tous</button>
-      <button class="filter-chip" data-filter="rouge">🍷 Rouge</button>
-      <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
-      <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
-      <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
+    <div class="filters" id="statsViewToggle">
+      <button class="filter-chip active" data-view="stock">📦 Stock</button>
+      <button class="filter-chip" data-view="conso">🍷 Consommation</button>
     </div>
-    <div class="filters-grid">
-    <div class="sort-row">
-      <span class="sort-label">Cépage</span>
-      <select class="form-select sort-select" id="statsCepageFilterSelect">
-        <option value="tous">Tous les cépages</option>
-      </select>
+
+    <div id="statsStockView">
+      <div class="filters" id="statsColorFilters">
+        <button class="filter-chip active" data-filter="tous">Tous</button>
+        <button class="filter-chip" data-filter="rouge">🍷 Rouge</button>
+        <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
+        <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
+        <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
+      </div>
+      <div class="filters-grid">
+      <div class="sort-row">
+        <span class="sort-label">Cépage</span>
+        <select class="form-select sort-select" id="statsCepageFilterSelect">
+          <option value="tous">Tous les cépages</option>
+        </select>
+      </div>
+      <div class="sort-row">
+        <span class="sort-label">Région</span>
+        <select class="form-select sort-select" id="statsRegionFilterSelect">
+          <option value="tous">Toutes les régions</option>
+        </select>
+      </div>
+      <div class="sort-row">
+        <span class="sort-label">Pays</span>
+        <select class="form-select sort-select" id="statsPaysFilterSelect">
+          <option value="tous">Tous les pays</option>
+        </select>
+      </div>
+      <div class="sort-row">
+        <span class="sort-label">À boire avec</span>
+        <select class="form-select sort-select" id="statsAccordFilterSelect">
+          <option value="tous">Tous les accords</option>
+        </select>
+      </div>
+      </div>
+      <div class="stat-grid" id="statsGrid">
+        <div class="loading" style="grid-column:1/-1">Chargement…</div>
+      </div>
     </div>
-    <div class="sort-row">
-      <span class="sort-label">Région</span>
-      <select class="form-select sort-select" id="statsRegionFilterSelect">
-        <option value="tous">Toutes les régions</option>
-      </select>
-    </div>
-    <div class="sort-row">
-      <span class="sort-label">Pays</span>
-      <select class="form-select sort-select" id="statsPaysFilterSelect">
-        <option value="tous">Tous les pays</option>
-      </select>
-    </div>
-    <div class="sort-row">
-      <span class="sort-label">À boire avec</span>
-      <select class="form-select sort-select" id="statsAccordFilterSelect">
-        <option value="tous">Tous les accords</option>
-      </select>
-    </div>
-    </div>
-    <div class="stat-grid" id="statsGrid">
-      <div class="loading" style="grid-column:1/-1">Chargement…</div>
+
+    <div id="statsConsoView" class="hidden">
+      <div class="filters" id="historiqueColorFilters">
+        <button class="filter-chip active" data-filter="tous">Tous</button>
+        <button class="filter-chip" data-filter="rouge">🍷 Rouge</button>
+        <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
+        <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
+        <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
+      </div>
+      <div class="filters">
+        <button class="filter-chip active" data-coup-de-coeur="tous">Tous</button>
+        <button class="filter-chip" data-coup-de-coeur="favoris">⭐ Coups de cœur</button>
+        <button class="filter-chip" data-coup-de-coeur="a_racheter">🛒 À racheter</button>
+      </div>
+      <div class="filters-grid">
+      <div class="sort-row">
+        <span class="sort-label">Cépage</span>
+        <select class="form-select sort-select" id="historiqueCepageFilterSelect">
+          <option value="tous">Tous les cépages</option>
+        </select>
+      </div>
+      <div class="sort-row">
+        <span class="sort-label">Région</span>
+        <select class="form-select sort-select" id="historiqueRegionFilterSelect">
+          <option value="tous">Toutes les régions</option>
+        </select>
+      </div>
+      <div class="sort-row">
+        <span class="sort-label">Pays</span>
+        <select class="form-select sort-select" id="historiquePaysFilterSelect">
+          <option value="tous">Tous les pays</option>
+        </select>
+      </div>
+      <div class="sort-row">
+        <span class="sort-label">À boire avec</span>
+        <select class="form-select sort-select" id="historiqueAccordFilterSelect">
+          <option value="tous">Tous les accords</option>
+        </select>
+      </div>
+      </div>
+      <div class="stat-grid" id="historiqueStats"></div>
     </div>
   </div>
 
   <!-- ── TAB : À BOIRE ─────────────────────────── -->
   <div class="section hidden" id="tab-a-boire">
+    <button class="btn-save" id="btnPickWine" style="width:100%">🎲 Choisis-moi une bouteille</button>
+    <p class="scan-hint" style="margin-top:8px">Respecte les filtres ci-dessous (couleur, accord, prix max…) — réglez-les d'abord pour orienter le choix.</p>
     <div class="search-row">
       <input class="search-input" type="search" placeholder="Rechercher..." id="aBoireSearch" />
     </div>
@@ -1126,6 +1184,10 @@
         <option value="tous">Tous les accords</option>
       </select>
     </div>
+    <div class="sort-row">
+      <span class="sort-label">Prix max (CHF)</span>
+      <input class="form-input" style="height:auto;padding:6px 8px;font-size:12px" id="aBoirePrixMaxFilter" type="number" min="0" placeholder="Pas de limite" />
+    </div>
     </div>
     <div class="wine-list" id="aBoireList">
       <div class="loading">Chargement…</div>
@@ -1134,19 +1196,9 @@
 
   <!-- ── TAB : HISTORIQUE ───────────────────────── -->
   <div class="section hidden" id="tab-historique">
+    <p class="scan-hint" style="margin-top:0">Le filtrage par couleur, cépage, région, pays, accord et coups de cœur/à racheter se règle dans l'onglet Stats → Consommation ; il s'applique aussi à ce journal.</p>
     <div class="search-row">
       <input class="search-input" type="search" placeholder="Rechercher..." id="historiqueSearch" />
-    </div>
-    <div class="filters" id="historiqueColorFilters">
-      <button class="filter-chip active" data-filter="tous">Tous</button>
-      <button class="filter-chip" data-filter="rouge">🍷 Rouge</button>
-      <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
-      <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
-      <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
-    </div>
-    <div class="filters">
-      <button class="filter-chip active" data-coup-de-coeur="tous">Tous</button>
-      <button class="filter-chip" data-coup-de-coeur="favoris">⭐ Coups de cœur</button>
     </div>
     <div class="filters-grid">
     <div class="sort-row">
@@ -1163,32 +1215,7 @@
         <option value="nom">Nom (A → Z)</option>
       </select>
     </div>
-    <div class="sort-row">
-      <span class="sort-label">Cépage</span>
-      <select class="form-select sort-select" id="historiqueCepageFilterSelect">
-        <option value="tous">Tous les cépages</option>
-      </select>
     </div>
-    <div class="sort-row">
-      <span class="sort-label">Région</span>
-      <select class="form-select sort-select" id="historiqueRegionFilterSelect">
-        <option value="tous">Toutes les régions</option>
-      </select>
-    </div>
-    <div class="sort-row">
-      <span class="sort-label">Pays</span>
-      <select class="form-select sort-select" id="historiquePaysFilterSelect">
-        <option value="tous">Tous les pays</option>
-      </select>
-    </div>
-    <div class="sort-row">
-      <span class="sort-label">À boire avec</span>
-      <select class="form-select sort-select" id="historiqueAccordFilterSelect">
-        <option value="tous">Tous les accords</option>
-      </select>
-    </div>
-    </div>
-    <div class="stat-grid" id="historiqueStats" style="margin-bottom:16px"></div>
     <div class="wine-list" id="historiqueList">
       <div class="loading">Chargement…</div>
     </div>
@@ -1296,7 +1323,7 @@
     <div class="form-row-3">
       <div class="form-group">
         <label class="form-label">Quantité</label>
-        <input class="form-input" id="fQuantite" type="number" value="1" min="0" />
+        <input class="form-input" id="fQuantite" type="number" value="1" min="1" />
       </div>
       <div class="form-group">
         <label class="form-label">Boire dès</label>
@@ -1307,9 +1334,23 @@
         <input class="form-input" id="fBoireAvant" type="number" placeholder="2030" min="2000" max="2060" />
       </div>
     </div>
+    <div class="form-row-3 form-row-achat span-2">
+      <div class="form-group">
+        <label class="form-label">Prix (CHF)</label>
+        <input class="form-input" id="fPrix" type="number" placeholder="0.00" step="0.01" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date d'achat</label>
+        <input class="form-input" id="fDateAchat" type="date" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Caviste</label>
+        <input class="form-input" id="fCaviste" type="text" placeholder="Mövenpick Wein, Denner…" />
+      </div>
+    </div>
     <div class="form-group">
-      <label class="form-label">Prix d'achat (CHF)</label>
-      <input class="form-input" id="fPrix" type="number" placeholder="0.00" step="0.01" />
+      <label class="form-label">Emplacement</label>
+      <input class="form-input" id="fEmplacement" type="text" placeholder="Ex : Casier B12" />
     </div>
     <div class="form-group span-2">
       <label class="form-label">Notes</label>
@@ -1323,14 +1364,15 @@
         <input type="file" id="fPhoto" accept="image/*" />
         <img id="photoPreview" style="display:none" alt="preview" />
       </label>
-      <button class="btn-scan hidden" id="btnScanLabel" type="button">🔍 Scanner le texte de l'étiquette</button>
+      <button class="btn-scan hidden" id="btnScanLabel" type="button">🔍 Lecture rapide de l'étiquette (locale)</button>
       <div class="scan-status hidden" id="scanStatus"></div>
+      <div class="scan-status hidden" style="text-align:left" id="scanHintForm">Détecte surtout nom, millésime, région et pays — à vérifier et compléter. Pour une fiche complète (prix, fenêtre de dégustation, accords…), utilisez plutôt l'analyse IA depuis l'onglet Cave.</div>
     </div>
     </div>
 
     <div class="form-actions">
       <button class="btn-cancel" id="btnFormCancel">Annuler</button>
-      <button class="btn-delete hidden" id="btnDelete">🗑</button>
+      <button class="btn-delete hidden" id="btnDelete" title="Retirer de la cave sans l'ajouter à l'historique (erreur de saisie, doublon...)">🗑</button>
       <button class="btn-save" id="btnFormSave">Enregistrer</button>
     </div>
   </div>
@@ -1419,6 +1461,24 @@
       <button class="btn-save" id="btnExportHistoriqueCsv" style="flex:none;width:100%">📄 Historique (CSV)</button>
       <button class="btn-save" id="btnExportJson" style="flex:none;width:100%">🗄 Sauvegarde complète (JSON)</button>
     </div>
+    <div class="form-actions" style="flex-direction:column;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+      <button class="btn-cancel" id="btnRestoreJson" style="flex:none;width:100%">📥 Restaurer une sauvegarde JSON</button>
+      <input type="file" id="fRestoreFile" accept="application/json" class="hidden" />
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL : RESTAURATION JSON ────────────────────── -->
+<div class="modal-overlay hidden" id="modalRestore">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-close-bar"><button class="modal-close-btn" data-close-modal="modalRestore" aria-label="Fermer">✕</button></div>
+    <div class="modal-title">Restaurer une sauvegarde 📥</div>
+    <div id="restoreSummary"></div>
+    <div class="form-actions" style="flex-direction:column;gap:8px;margin-top:18px">
+      <button class="btn-save" id="btnRestoreMerge" style="flex:none;width:100%">Fusionner avec la cave actuelle</button>
+      <button class="btn-delete-full" id="btnRestoreReplace" style="background:var(--urgent);color:#fff">Remplacer toute la cave et l'historique</button>
+      <button class="btn-cancel" id="btnRestoreCancel" style="flex:none;width:100%">Annuler</button>
+    </div>
   </div>
 </div>
 
@@ -1488,7 +1548,7 @@ async function doLogin() {
   }
   document.getElementById('login-password').value = '';
   hideLogin();
-  loadWines();
+  loadAppData();
 }
 
 async function logout() {
@@ -1556,6 +1616,13 @@ async function loadWines() {
   renderCave();
 }
 
+async function loadAppData() {
+  await Promise.all([loadWines(), loadArchive()]);
+  // loadWines() peut avoir rendu Cave avant que loadArchive() ne remplisse
+  // `archive` : on re-render pour que le compteur "déjà bu" soit à jour.
+  renderCave();
+}
+
 // ── Helpers ───────────────────────────────────────────
 const YEAR = new Date().getFullYear();
 
@@ -1574,7 +1641,7 @@ function statutBadge(statut) {
     pret:     ['badge-pret',     'Prêt'],
     attendre: ['badge-attendre', 'Attendre'],
     urgent:   ['badge-urgent',   'À boire !'],
-    passe:    ['badge-passe',    'Passé'],
+    passe:    ['badge-passe',    'Fenêtre dépassée'],
   };
   if (!statut) return '';
   const [cls, label] = map[statut];
@@ -1582,13 +1649,13 @@ function statutBadge(statut) {
 }
 
 const COULEUR_EMOJI = {
-  rouge: '🍷', blanc: '🥂', 'rosé': '🌸', 'pétillant': '✨', 'fortifié': '🍶'
+  rouge: '🍷', blanc: '🥂', 'rosé': '🌸', 'pétillant': '✨'
 };
 const COULEUR_VAR = {
-  rouge: '--rouge', blanc: '--blanc', 'rosé': '--rose', 'pétillant': '--petillant', 'fortifié': '--fortifie'
+  rouge: '--rouge', blanc: '--blanc', 'rosé': '--rose', 'pétillant': '--petillant'
 };
 const COULEUR_CLASS = {
-  rouge: 'fill-rouge', blanc: 'fill-blanc', 'rosé': 'fill-rose', 'pétillant': 'fill-petillant', 'fortifié': 'fill-fortifie'
+  rouge: 'fill-rouge', blanc: 'fill-blanc', 'rosé': 'fill-rose', 'pétillant': 'fill-petillant'
 };
 
 function photoOrEmoji(w, size = 52) {
@@ -1601,10 +1668,27 @@ function photoOrEmoji(w, size = 52) {
 // ── Render cave ───────────────────────────────────────
 let sortMode = 'nom';
 
+// Identité d'une référence de vin, mutualisée pour la détection de doublon,
+// la restauration depuis l'historique et le compteur "déjà bu" : nom et
+// domaine normalisés (accents/casse/ponctuation ignorés) + millésime.
+function normaliserTexte(s) {
+  return (s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+}
+
+function isSameWineReference(a, b) {
+  return normaliserTexte(a.nom) === normaliserTexte(b.nom)
+    && normaliserTexte(a.domaine) === normaliserTexte(b.domaine)
+    && (a.millesime || null) === (b.millesime || null);
+}
+
 function getDejaBuCount(w) {
-  // Compte les bouteilles archivées du même nom + domaine (référence identique)
+  // Compte les bouteilles archivées correspondant à la même référence (nom + domaine + millésime)
   return archive
-    .filter(a => a.nom === w.nom && (a.domaine || '') === (w.domaine || ''))
+    .filter(a => isSameWineReference(a, w))
     .reduce((s, a) => s + (a.quantite_bue || 0), 0);
 }
 
@@ -1752,7 +1836,8 @@ function renderCave() {
       || (w.domaine || '').toLowerCase().includes(q)
       || (w.region || '').toLowerCase().includes(q)
       || (w.cepage || '').toLowerCase().includes(q)
-      || (w.accord_mets || '').toLowerCase().includes(q);
+      || (w.accord_mets || '').toLowerCase().includes(q)
+      || (w.emplacement || '').toLowerCase().includes(q);
     return matchCouleur && matchCepage && matchRegion && matchPays && matchAccord && matchSearch;
   });
 
@@ -1774,6 +1859,7 @@ function renderCave() {
           <div class="wine-name">${w.nom}</div>
           <div class="wine-sub">${sub || '—'}</div>
           ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${w.accord_mets}</div>` : ''}
+          ${w.emplacement ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">📍 ${w.emplacement}</div>` : ''}
           ${dejaBu > 0 ? `<div class="wine-sub" style="font-size:11px;color:var(--gold);margin-top:2px">↻ déjà bu ${dejaBu}×</div>` : ''}
         </div>
         <div class="wine-right">
@@ -1789,6 +1875,17 @@ function renderCave() {
 }
 
 // ── Render stats ──────────────────────────────────────
+document.getElementById('statsViewToggle').addEventListener('click', e => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  document.querySelectorAll('#statsViewToggle .filter-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  const view = chip.dataset.view;
+  document.getElementById('statsStockView').classList.toggle('hidden', view !== 'stock');
+  document.getElementById('statsConsoView').classList.toggle('hidden', view !== 'conso');
+  if (view === 'conso') renderHistoriqueStats();
+});
+
 let statsColorFilter = 'tous';
 let statsCepageFilter = 'tous';
 let statsRegionFilter = 'tous';
@@ -1882,7 +1979,11 @@ function renderStats() {
   const valeur = filteredWines.reduce((s, w) => s + (w.prix_achat || 0) * (w.quantite || 0), 0);
 
   const statutCounts = { pret: 0, attendre: 0, urgent: 0, passe: 0 };
-  filteredWines.forEach(w => { const s = getStatut(w); if (s) statutCounts[s]++; });
+  const statutBouteilles = { pret: 0, attendre: 0, urgent: 0, passe: 0 };
+  filteredWines.forEach(w => {
+    const s = getStatut(w);
+    if (s) { statutCounts[s]++; statutBouteilles[s] += (w.quantite || 0); }
+  });
 
   const couleurCounts = {};
   filteredWines.forEach(w => {
@@ -1951,13 +2052,13 @@ function renderStats() {
     </div>
     <div class="stat-card">
       <div class="stat-label">Prêts à boire</div>
-      <div class="stat-value green">${statutCounts.pret}</div>
-      <div class="stat-sub">${statutCounts.urgent} urgents · ${statutCounts.attendre} en attente</div>
+      <div class="stat-value green">${statutBouteilles.pret}</div>
+      <div class="stat-sub">${statutCounts.pret} référence${statutCounts.pret > 1 ? 's' : ''} · ${statutBouteilles.urgent} btl urgentes (${statutCounts.urgent} réf.) · ${statutBouteilles.attendre} btl en attente (${statutCounts.attendre} réf.)</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Périmés</div>
-      <div class="stat-value" style="color:var(--passe)">${statutCounts.passe}</div>
-      <div class="stat-sub">fenêtre dépassée</div>
+      <div class="stat-value" style="color:var(--passe)">${statutBouteilles.passe}</div>
+      <div class="stat-sub">${statutCounts.passe} référence${statutCounts.passe > 1 ? 's' : ''} · fenêtre dépassée</div>
     </div>
     <div class="stat-card full">
       <div class="stat-label">Répartition par couleur</div>
@@ -1985,13 +2086,20 @@ function renderStats() {
 let aBoireSearch = '';
 let aBoireColorFilter = 'tous';
 let aBoireSortMode = 'echeance';
+let aBoireFilteredCache = []; // dernière liste filtrée, utilisée par "Choisis-moi une bouteille"
 let aBoireCepageFilter = 'tous';
 let aBoireRegionFilter = 'tous';
 let aBoirePaysFilter = 'tous';
 let aBoireAccordFilter = 'tous';
+let aBoirePrixMaxFilter = null;
 
 document.getElementById('aBoireSearch').addEventListener('input', e => {
   aBoireSearch = e.target.value;
+  renderABoire();
+});
+
+document.getElementById('aBoirePrixMaxFilter').addEventListener('input', e => {
+  aBoirePrixMaxFilter = e.target.value === '' ? null : parseFloat(e.target.value);
   renderABoire();
 });
 
@@ -2109,13 +2217,15 @@ function sortABoire(list) {
     case 'nom':
       return sorted.sort((a,b) => a.nom.localeCompare(b.nom));
     case 'echeance':
-    default:
+    default: {
+      const priorite = { passe: 0, urgent: 1, pret: 2, attendre: 3 };
       return sorted.sort((a,b) => {
-        const sa = getStatut(a), sb = getStatut(b);
-        if (sa === 'urgent' && sb !== 'urgent') return -1;
-        if (sb === 'urgent' && sa !== 'urgent') return 1;
+        const pa = priorite[getStatut(a)] ?? 4;
+        const pb = priorite[getStatut(b)] ?? 4;
+        if (pa !== pb) return pa - pb;
         return (a.boire_avant || 9999) - (b.boire_avant || 9999);
       });
+    }
   }
 }
 
@@ -2123,7 +2233,7 @@ function renderABoire() {
   const list = document.getElementById('aBoireList');
   const prêts = wines.filter(w => {
     const s = getStatut(w);
-    return s === 'pret' || s === 'urgent';
+    return s === 'pret' || s === 'urgent' || s === 'passe';
   });
 
   updateABoireCepageFilterOptions(prêts);
@@ -2137,16 +2247,18 @@ function renderABoire() {
     const matchRegion = aBoireRegionFilter === 'tous' || w.region === aBoireRegionFilter;
     const matchPays = aBoirePaysFilter === 'tous' || w.pays === aBoirePaysFilter;
     const matchAccord = aBoireAccordFilter === 'tous' || splitAccords(w.accord_mets).includes(aBoireAccordFilter);
+    const matchPrix = aBoirePrixMaxFilter == null || !w.prix_achat || w.prix_achat <= aBoirePrixMaxFilter;
     const q = aBoireSearch.toLowerCase();
     const matchSearch = !q || w.nom.toLowerCase().includes(q)
       || (w.domaine || '').toLowerCase().includes(q)
       || (w.region || '').toLowerCase().includes(q)
       || (w.cepage || '').toLowerCase().includes(q)
       || (w.accord_mets || '').toLowerCase().includes(q);
-    return matchCouleur && matchCepage && matchRegion && matchPays && matchAccord && matchSearch;
+    return matchCouleur && matchCepage && matchRegion && matchPays && matchAccord && matchPrix && matchSearch;
   });
 
   filtered = sortABoire(filtered);
+  aBoireFilteredCache = filtered;
 
   if (!prêts.length) {
     list.innerHTML = `<div class="empty"><div class="empty-icon">⏳</div><h3>Rien à boire pour l'instant</h3><p>Vos vins ne sont pas encore prêts.</p></div>`;
@@ -2159,7 +2271,7 @@ function renderABoire() {
   list.innerHTML = filtered.map(w => {
     const statut = getStatut(w);
     const sub = [w.domaine, w.millesime, w.cepage, w.region].filter(Boolean).join(' · ');
-    const fin = w.boire_avant ? `jusqu'en ${w.boire_avant}` : '';
+    const fin = w.boire_avant ? (statut === 'passe' ? `dépassé depuis ${w.boire_avant}` : `jusqu'en ${w.boire_avant}`) : '';
     return `
       <div class="wine-card" data-id="${w.id}">
         ${photoOrEmoji(w)}
@@ -2181,10 +2293,36 @@ function renderABoire() {
   });
 }
 
+// Tirage pondéré : privilégie les vins dont la fenêtre est dépassée ou urgente
+function pickWeightedWine(list) {
+  const poids = { passe: 3, urgent: 2, pret: 1, attendre: 1 };
+  const tirage = [];
+  list.forEach(w => {
+    const n = poids[getStatut(w)] || 1;
+    for (let i = 0; i < n; i++) tirage.push(w);
+  });
+  return tirage[Math.floor(Math.random() * tirage.length)];
+}
+
+document.getElementById('btnPickWine').addEventListener('click', () => {
+  if (!aBoireFilteredCache.length) {
+    showToast('Aucun vin ne correspond à ces filtres');
+    return;
+  }
+  const picked = pickWeightedWine(aBoireFilteredCache);
+  openDetail(picked.id);
+});
+
 // ── Historique / Archive ───────────────────────────────
 let archive = [];
 let historiqueSearch = '';
 let historiqueFilter = 'tous';
+
+function matchHistoriqueFilter(w) {
+  if (historiqueFilter === 'favoris') return w.note_sur_5 >= 4;
+  if (historiqueFilter === 'a_racheter') return !!w.a_racheter;
+  return true;
+}
 let historiqueCepageFilter = 'tous';
 let historiqueRegionFilter = 'tous';
 let historiquePaysFilter = 'tous';
@@ -2344,7 +2482,7 @@ function renderHistoriqueStats() {
   if (!archive.length) { grid.innerHTML = ''; return; }
 
   const filteredArchive = archive.filter(w => {
-    const matchFavoris = historiqueFilter === 'tous' || (w.note_sur_5 >= 4);
+    const matchFavoris = matchHistoriqueFilter(w);
     const matchCouleur = historiqueCouleurFilter === 'tous' || w.couleur === historiqueCouleurFilter;
     const matchCepage = historiqueCepageFilter === 'tous' || splitCepages(w.cepage).includes(historiqueCepageFilter);
     const matchRegion = historiqueRegionFilter === 'tous' || w.region === historiqueRegionFilter;
@@ -2472,7 +2610,7 @@ function renderHistorique() {
   const list = document.getElementById('historiqueList');
 
   let filtered = archive.filter(w => {
-    const matchFavoris = historiqueFilter === 'tous' || (w.note_sur_5 >= 4);
+    const matchFavoris = matchHistoriqueFilter(w);
     const matchCouleur = historiqueCouleurFilter === 'tous' || w.couleur === historiqueCouleurFilter;
     const matchCepage = historiqueCepageFilter === 'tous' || splitCepages(w.cepage).includes(historiqueCepageFilter);
     const matchRegion = historiqueRegionFilter === 'tous' || w.region === historiqueRegionFilter;
@@ -2508,6 +2646,7 @@ function renderHistorique() {
           <div class="wine-sub">${sub || '—'}</div>
           ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${w.accord_mets}</div>` : ''}
           ${starsHtml(w.note_sur_5)}
+          ${w.a_racheter ? `<div class="wine-sub" style="font-size:11px;color:var(--gold);margin-top:2px">🛒 À racheter</div>` : ''}
           ${w.note_degustation ? `<div class="wine-sub" style="font-style:italic;margin-top:2px">💬 ${w.note_degustation}</div>` : ''}
         </div>
         <div class="wine-right">
@@ -2603,13 +2742,23 @@ function openDetail(id) {
         <div class="detail-item-label">À boire avec</div>
         <div class="detail-item-value">🍽️ ${w.accord_mets}</div>
       </div>` : ''}
+      ${w.emplacement ? `
+      <div class="detail-item" style="grid-column:1/-1">
+        <div class="detail-item-label">Emplacement</div>
+        <div class="detail-item-value">📍 ${w.emplacement}</div>
+      </div>` : ''}
+      ${(w.date_achat || w.caviste) ? `
+      <div class="detail-item" style="grid-column:1/-1">
+        <div class="detail-item-label">Achat</div>
+        <div class="detail-item-value">${[w.date_achat ? new Date(w.date_achat).toLocaleDateString('fr-CH') : '', w.caviste].filter(Boolean).join(' · ')}</div>
+      </div>` : ''}
     </div>
     ${w.notes ? `<div class="detail-notes">💬 ${w.notes}</div>` : ''}
     <div class="detail-actions">
-      <button class="btn-consume" id="btnConsume">−1 bouteille</button>
+      <button class="btn-consume" id="btnConsume">−1 bue</button>
       <button class="btn-edit" id="btnDetailEdit">Modifier</button>
     </div>
-    <button class="btn-delete-full" id="btnDetailDelete">🗑 Archiver tout le stock restant</button>
+    <button class="btn-delete-full" id="btnDetailDelete">📖 Tout marquer comme bu</button>
   `;
 
   if (w.photo_url) {
@@ -2621,14 +2770,14 @@ function openDetail(id) {
     openForm(id);
   });
 
-  // −1 bouteille : on archive systématiquement 1 unité avec une note de dégustation
+  // −1 bue : on archive systématiquement 1 unité avec une note de dégustation
   document.getElementById('btnConsume').addEventListener('click', () => {
     if (w.quantite <= 0) return;
     closeModal('modalDetail');
     openArchiveModal(w, 1, w.quantite - 1); // archive 1, garde (quantite - 1) en cave
   });
 
-  // Archiver tout le stock restant
+  // Tout marquer comme bu
   document.getElementById('btnDetailDelete').addEventListener('click', () => {
     closeModal('modalDetail');
     openArchiveModal(w, w.quantite, 0); // archive tout, ne garde rien
@@ -2700,6 +2849,7 @@ function openArchiveDetail(id) {
     ${w.notes ? `<div class="detail-notes">📝 Notes d'origine : ${w.notes}</div>` : ''}
     ${w.note_degustation ? `<div class="detail-notes">💬 ${w.note_degustation}</div>` : ''}
     <div class="detail-actions">
+      <button class="btn-edit" id="btnToggleRacheter">${w.a_racheter ? '🛒 Retirer de "à racheter"' : '🛒 Marquer à racheter'}</button>
       <button class="btn-edit" id="btnEditArchiveNote">✏️ Modifier la note</button>
       <button class="btn-consume" id="btnRestoreCave">↩ Remettre en cave</button>
       <button class="btn-edit" id="btnDeleteArchive" style="background:var(--urgent)">🗑 Supprimer définitivement</button>
@@ -2710,6 +2860,16 @@ function openArchiveDetail(id) {
     document.getElementById('detailPhotoZoom').addEventListener('click', () => openImageViewer(w.photo_url));
   }
 
+  document.getElementById('btnToggleRacheter').addEventListener('click', async () => {
+    const newVal = !w.a_racheter;
+    await db.from('wines_archive').update({ a_racheter: newVal }).eq('id', w.id);
+    w.a_racheter = newVal;
+    showToast(newVal ? 'Ajouté à "à racheter" 🛒' : 'Retiré de "à racheter"');
+    renderHistoriqueStats();
+    renderHistorique();
+    openArchiveDetail(id);
+  });
+
   document.getElementById('btnEditArchiveNote').addEventListener('click', () => {
     openEditArchiveModal(w);
   });
@@ -2717,12 +2877,9 @@ function openArchiveDetail(id) {
   document.getElementById('btnRestoreCave').addEventListener('click', async () => {
     if (!confirm(`Remettre "${w.nom}" dans la cave (${w.quantite_bue} bouteille${w.quantite_bue > 1 ? 's' : ''}) ?`)) return;
 
-    // Cherche une fiche identique déjà en cave (même nom + domaine) pour fusionner
-    // plutôt que de créer une entrée séparée
-    const existing = wines.find(x =>
-      x.nom.trim().toLowerCase() === w.nom.trim().toLowerCase() &&
-      (x.domaine || '').trim().toLowerCase() === (w.domaine || '').trim().toLowerCase()
-    );
+    // Cherche une fiche identique déjà en cave (même référence : nom + domaine + millésime)
+    // pour fusionner plutôt que de créer une entrée séparée
+    const existing = wines.find(x => isSameWineReference(x, w));
 
     if (existing) {
       const newQty = (existing.quantite || 0) + (w.quantite_bue || 0);
@@ -2750,8 +2907,7 @@ function openArchiveDetail(id) {
 
     closeModal('modalDetail');
     showToast(existing ? 'Quantité fusionnée avec la fiche existante 🍷' : 'Vin remis en cave 🍷');
-    await loadArchive();
-    await loadWines();
+    await loadAppData();
   });
 
   document.getElementById('btnDeleteArchive').addEventListener('click', () => {
@@ -2848,8 +3004,7 @@ async function confirmArchive() {
   closeModal('modalArchive');
   showToast('Vin archivé 📖');
   archiveTarget = null;
-  await loadArchive();
-  await loadWines();
+  await loadAppData();
 }
 
 document.getElementById('btnArchiveConfirm').addEventListener('click', confirmArchive);
@@ -3001,9 +3156,10 @@ function openForm(id = null) {
   document.getElementById('scanStatus').classList.add('hidden');
   document.getElementById('scanStatus').textContent = '';
   document.getElementById('btnScanLabel').classList.add('hidden');
+  document.getElementById('scanHintForm').classList.add('hidden');
   document.getElementById('fPhoto').value = ''; // reset pour garantir le déclenchement de 'change' même en ressélectionnant le même fichier
 
-  const fields = { fNom:'', fDomaine:'', fMillesime:'', fRegion:'', fPays:'France', fCepage:'', fAccord:'', fQuantite:1, fBoireDepuis:'', fBoireAvant:'', fPrix:'', fNotes:'' };
+  const fields = { fNom:'', fDomaine:'', fMillesime:'', fRegion:'', fPays:'France', fCepage:'', fAccord:'', fQuantite:1, fBoireDepuis:'', fBoireAvant:'', fPrix:'', fDateAchat:'', fCaviste:'', fEmplacement:'', fNotes:'' };
 
   if (id) {
     const w = wines.find(x => x.id === id);
@@ -3019,6 +3175,9 @@ function openForm(id = null) {
       fields.fBoireDepuis = w.boire_a_partir_de || '';
       fields.fBoireAvant  = w.boire_avant || '';
       fields.fPrix      = w.prix_achat || '';
+      fields.fDateAchat = w.date_achat || '';
+      fields.fCaviste   = w.caviste || '';
+      fields.fEmplacement = w.emplacement || '';
       fields.fNotes     = w.notes || '';
       selectedCouleur   = w.couleur;
 
@@ -3027,6 +3186,7 @@ function openForm(id = null) {
         document.getElementById('photoPreview').style.display = 'block';
         document.getElementById('photoUploadText').textContent = '';
         document.getElementById('btnScanLabel').classList.remove('hidden');
+        document.getElementById('scanHintForm').classList.remove('hidden');
       }
     }
   }
@@ -3067,6 +3227,7 @@ document.getElementById('fPhoto').addEventListener('change', e => {
     preview.style.display = 'block';
     document.getElementById('photoUploadText').textContent = '';
     document.getElementById('btnScanLabel').classList.remove('hidden');
+    document.getElementById('scanHintForm').classList.remove('hidden');
   };
 
   reader.onerror = () => {
@@ -3114,7 +3275,7 @@ document.getElementById('btnScanLabel').addEventListener('click', async () => {
     statusEl.textContent = 'Lecture impossible, complétez manuellement.';
   } finally {
     btn.disabled = false;
-    btn.textContent = '🔍 Scanner le texte de l\'étiquette';
+    btn.textContent = '🔍 Lecture rapide de l\'étiquette (locale)';
   }
 });
 
@@ -3166,10 +3327,7 @@ document.getElementById('btnFormSave').addEventListener('click', async () => {
 
   // Détection de doublon uniquement en mode ajout (pas en édition)
   if (!editingId) {
-    const duplicate = wines.find(w =>
-      w.nom.trim().toLowerCase() === nom.toLowerCase() &&
-      (w.domaine || '').trim().toLowerCase() === (payload.domaine || '').trim().toLowerCase()
-    );
+    const duplicate = wines.find(w => isSameWineReference(w, payload));
     if (duplicate) {
       openDuplicateModal(duplicate, payload);
       return;
@@ -3193,6 +3351,9 @@ function buildWinePayload(nom) {
     boire_a_partir_de:  parseInt(document.getElementById('fBoireDepuis').value) || null,
     boire_avant:        parseInt(document.getElementById('fBoireAvant').value) || null,
     prix_achat:         parseFloat(document.getElementById('fPrix').value) || null,
+    date_achat:         document.getElementById('fDateAchat').value || null,
+    caviste:            document.getElementById('fCaviste').value.trim() || null,
+    emplacement:        document.getElementById('fEmplacement').value.trim() || null,
     notes:              document.getElementById('fNotes').value.trim() || null,
   };
 }
@@ -3291,10 +3452,10 @@ document.getElementById('btnDupCancel').addEventListener('click', () => {
 // Delete
 document.getElementById('btnDelete').addEventListener('click', async () => {
   if (!editingId) return;
-  if (!confirm('Supprimer ce vin ?')) return;
+  if (!confirm('Retirer cette fiche de la cave sans l\'ajouter à l\'historique (erreur de saisie, doublon...) ? Pour une bouteille bue, utilisez plutôt "−1 bue" ou "Tout marquer comme bu".')) return;
   await db.from('wines').delete().eq('id', editingId);
   closeModal('modalForm');
-  showToast('Vin supprimé');
+  showToast('Vin retiré de la cave');
   await loadWines();
 });
 
@@ -3588,6 +3749,9 @@ const CAVE_CSV_HEADERS = [
   { key: 'prix_achat', label: 'Prix unitaire (CHF)' },
   { key: 'boire_a_partir_de', label: 'Boire à partir de' },
   { key: 'boire_avant', label: 'Boire avant' },
+  { key: 'emplacement', label: 'Emplacement' },
+  { key: 'date_achat', label: "Date d'achat" },
+  { key: 'caviste', label: 'Caviste / vendeur' },
   { key: 'notes', label: 'Notes' },
 ];
 
@@ -3604,6 +3768,7 @@ const HISTORIQUE_CSV_HEADERS = [
   { key: 'date_consommation', label: 'Bu le' },
   { key: 'note_sur_5', label: 'Note (/5)' },
   { key: 'note_degustation', label: 'Commentaire de dégustation' },
+  { key: 'a_racheter', label: 'À racheter' },
   { key: 'notes', label: 'Notes d\'origine' },
 ];
 
@@ -3631,16 +3796,130 @@ document.getElementById('btnExportJson').addEventListener('click', () => {
   closeModal('modalExport');
 });
 
+// ── Restauration d'une sauvegarde JSON ──────────────────
+let restoreContext = null; // { cave, historique }
+
+document.getElementById('btnRestoreJson').addEventListener('click', () => {
+  document.getElementById('fRestoreFile').click();
+});
+
+document.getElementById('fRestoreFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = ''; // permet de re-sélectionner le même fichier ensuite
+  if (!file) return;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(await file.text());
+  } catch {
+    showToast('Fichier JSON invalide');
+    return;
+  }
+
+  const cave = Array.isArray(parsed.cave) ? parsed.cave : [];
+  const historique = Array.isArray(parsed.historique) ? parsed.historique : [];
+  if (!Array.isArray(parsed.cave) && !Array.isArray(parsed.historique)) {
+    showToast('Ce fichier ne ressemble pas à une sauvegarde de la cave');
+    return;
+  }
+
+  restoreContext = { cave, historique };
+  document.getElementById('restoreSummary').innerHTML = `
+    <p class="dup-intro">Ce fichier contient <b>${cave.length}</b> référence${cave.length > 1 ? 's' : ''} en cave
+    et <b>${historique.length}</b> dégustation${historique.length > 1 ? 's' : ''} dans l'historique.</p>
+    <p class="dup-intro"><b>Fusionner</b> ajoute ces données à votre cave actuelle (les références identiques —
+    même nom, domaine et millésime — voient leur quantité additionnée). <b>Remplacer</b> efface d'abord
+    définitivement votre cave et votre historique actuels.</p>
+  `;
+  closeModal('modalExport');
+  document.getElementById('modalRestore').classList.remove('hidden');
+});
+
+function stripRowForInsert(row) {
+  const { id, user_id, created_at, ...rest } = row;
+  return rest;
+}
+
+async function doRestore(mode) {
+  if (!restoreContext) return;
+  const { cave, historique } = restoreContext;
+  const mergeBtn = document.getElementById('btnRestoreMerge');
+  const replaceBtn = document.getElementById('btnRestoreReplace');
+  mergeBtn.disabled = true;
+  replaceBtn.disabled = true;
+  const activeBtn = mode === 'remplacer' ? replaceBtn : mergeBtn;
+  const originalLabel = activeBtn.textContent;
+  activeBtn.textContent = 'Restauration…';
+
+  try {
+    if (mode === 'remplacer') {
+      const { error: delWinesErr } = await db.from('wines').delete().not('id', 'is', null);
+      if (delWinesErr) throw delWinesErr;
+      const { error: delArchiveErr } = await db.from('wines_archive').delete().not('id', 'is', null);
+      if (delArchiveErr) throw delArchiveErr;
+
+      if (cave.length) {
+        const { error } = await db.from('wines').insert(cave.map(stripRowForInsert));
+        if (error) throw error;
+      }
+      if (historique.length) {
+        const { error } = await db.from('wines_archive').insert(historique.map(stripRowForInsert));
+        if (error) throw error;
+      }
+    } else {
+      for (const w of cave) {
+        const existing = wines.find(x => isSameWineReference(x, w));
+        if (existing) {
+          const newQty = (existing.quantite || 0) + (w.quantite || 0);
+          const { error } = await db.from('wines').update({ quantite: newQty }).eq('id', existing.id);
+          if (error) throw error;
+        } else {
+          const { error } = await db.from('wines').insert(stripRowForInsert(w));
+          if (error) throw error;
+        }
+      }
+      for (const a of historique) {
+        const doublon = archive.find(x => isSameWineReference(x, a)
+          && x.date_consommation === a.date_consommation
+          && (x.quantite_bue || 0) === (a.quantite_bue || 0));
+        if (!doublon) {
+          const { error } = await db.from('wines_archive').insert(stripRowForInsert(a));
+          if (error) throw error;
+        }
+      }
+    }
+
+    showToast('Sauvegarde restaurée ✓');
+    closeModal('modalRestore');
+    restoreContext = null;
+    await loadAppData();
+  } catch (err) {
+    console.error(err);
+    showToast(`Erreur lors de la restauration : ${err.message || err.hint || 'réponse inattendue'}`);
+  } finally {
+    mergeBtn.disabled = false;
+    replaceBtn.disabled = false;
+    activeBtn.textContent = originalLabel;
+  }
+}
+
+document.getElementById('btnRestoreMerge').addEventListener('click', () => doRestore('fusionner'));
+
+document.getElementById('btnRestoreReplace').addEventListener('click', () => {
+  if (!confirm('Remplacer supprimera définitivement toute la cave et l\'historique actuels avant de réimporter la sauvegarde. Cette action est irréversible. Continuer ?')) return;
+  doRestore('remplacer');
+});
+
+document.getElementById('btnRestoreCancel').addEventListener('click', () => {
+  restoreContext = null;
+  closeModal('modalRestore');
+});
+
 // ── Init ──────────────────────────────────────────────
 (async () => {
   const { data: { session } } = await db.auth.getSession();
   if (!session) { showLogin(); return; }
-  loadWines();
-  // Charge l'archive en arrière-plan (silencieux) pour le compteur "déjà bu" dans Cave
-  db.from('wines_archive').select('*').order('date_consommation', { ascending: false })
-    .then(({ data, error }) => {
-      if (!error && data) { archive = data; renderCave(); }
-    });
+  loadAppData();
 })();
 
 db.auth.onAuthStateChange((event) => {

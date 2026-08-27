@@ -134,6 +134,49 @@ alter table public.wines add column accord_mets text;
 alter table public.wines_archive add column accord_mets text;
 ```
 
+## 7. Colonne "emplacement" (localisation physique de la bouteille)
+
+Champ libre affiché dans le formulaire et la fiche détaillée. Sans elle,
+l'ajout/modification d'un vin renverra une erreur `column "emplacement"
+does not exist`.
+
+```sql
+alter table public.wines add column emplacement text;
+```
+
+Pas nécessaire sur `wines_archive` : l'emplacement physique n'a plus de
+sens une fois la bouteille bue.
+
+## 8. Colonnes "date_achat" et "caviste" (traçabilité de l'achat)
+
+```sql
+alter table public.wines add column date_achat date;
+alter table public.wines add column caviste text;
+```
+
+Pas nécessaire sur `wines_archive` pour l'instant : ces informations ne
+sont pas recopiées à l'archivage (seul le prix payé l'est déjà via
+`prix_achat`).
+
+## 9. Colonne "a_racheter" (liste à racheter)
+
+Permet de marquer un vin dégusté et apprécié pour un futur réachat,
+depuis sa fiche dans l'historique (bouton "Marquer à racheter"), et de
+le retrouver via le filtre "🛒 À racheter" de l'onglet Historique.
+
+```sql
+alter table public.wines_archive add column a_racheter boolean not null default false;
+```
+
+## 10. Restauration d'une sauvegarde JSON
+
+Le bouton "Restaurer une sauvegarde JSON" (modale Export) relit un
+fichier exporté par "Sauvegarde complète (JSON)" et propose de
+fusionner (ajout aux données actuelles, doublons détectés par nom +
+domaine + millésime) ou de remplacer entièrement la cave et
+l'historique. Aucune nouvelle colonne requise — utilise les policies
+RLS déjà en place (étape 3 ou 5 selon votre configuration).
+
 ## Checklist de vérification
 
 - [ ] Navigation privée → écran de login apparaît, aucune donnée visible
