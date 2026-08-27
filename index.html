@@ -3148,7 +3148,7 @@ async function confirmArchive() {
   btn.textContent = 'Archivage…';
   btn.disabled = true;
 
-  await db.from('wines_archive').insert({
+  const { error: insertErr } = await db.from('wines_archive').insert({
     nom: w.nom,
     domaine: w.domaine,
     millesime: w.millesime,
@@ -3172,14 +3172,31 @@ async function confirmArchive() {
     created_at: w.created_at,
   });
 
-  if (quantiteRestante > 0) {
-    await db.from('wines').update({ quantite: quantiteRestante }).eq('id', w.id);
-  } else {
-    await db.from('wines').delete().eq('id', w.id);
+  // Ne jamais toucher au stock actif si l'archivage a échoué : la
+  // bouteille ne doit ni disparaître ni se dupliquer silencieusement.
+  if (insertErr) {
+    console.error('Erreur archivage:', insertErr);
+    btn.textContent = 'Archiver';
+    btn.disabled = false;
+    showToast(`Échec de l'archivage : ${insertErr.message || insertErr.hint || 'réponse inattendue'}`);
+    return;
   }
+
+  const stockUpdate = quantiteRestante > 0
+    ? await db.from('wines').update({ quantite: quantiteRestante }).eq('id', w.id)
+    : await db.from('wines').delete().eq('id', w.id);
 
   btn.textContent = 'Archiver';
   btn.disabled = false;
+
+  if (stockUpdate.error) {
+    console.error('Erreur mise à jour du stock après archivage:', stockUpdate.error);
+    showToast('Dégustation enregistrée, mais la mise à jour du stock a échoué — vérifiez la quantité de ce vin.');
+    closeModal('modalArchive');
+    archiveTarget = null;
+    await loadAppData();
+    return;
+  }
 
   closeModal('modalArchive');
   showToast('Vin archivé 📖');
