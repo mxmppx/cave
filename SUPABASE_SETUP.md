@@ -140,23 +140,29 @@ Champ libre affiché dans le formulaire et la fiche détaillée. Sans elle,
 l'ajout/modification d'un vin renverra une erreur `column "emplacement"
 does not exist`.
 
+**Nécessaire sur les deux tables** : l'emplacement est recopié vers
+`wines_archive` au moment de l'archivage (pour rester visible sur une
+bouteille déjà bue et être restitué si elle est remise en cave). Sans
+la colonne sur `wines_archive`, l'archivage d'un vin renverra une
+erreur `column "emplacement" does not exist` et **la bouteille sera
+décrémentée de la cave sans être enregistrée dans l'historique**.
+
 ```sql
 alter table public.wines add column emplacement text;
+alter table public.wines_archive add column emplacement text;
 ```
 
-Pas nécessaire sur `wines_archive` : l'emplacement physique n'a plus de
-sens une fois la bouteille bue.
-
 ## 8. Colonnes "date_achat" et "caviste" (traçabilité de l'achat)
+
+**Nécessaire sur les deux tables**, pour la même raison qu'au point 7 :
+ces informations sont recopiées vers `wines_archive` à l'archivage.
 
 ```sql
 alter table public.wines add column date_achat date;
 alter table public.wines add column caviste text;
+alter table public.wines_archive add column date_achat date;
+alter table public.wines_archive add column caviste text;
 ```
-
-Pas nécessaire sur `wines_archive` pour l'instant : ces informations ne
-sont pas recopiées à l'archivage (seul le prix payé l'est déjà via
-`prix_achat`).
 
 ## 9. Colonne "a_racheter" (liste à racheter)
 
@@ -176,6 +182,24 @@ fusionner (ajout aux données actuelles, doublons détectés par nom +
 domaine + millésime) ou de remplacer entièrement la cave et
 l'historique. Aucune nouvelle colonne requise — utilise les policies
 RLS déjà en place (étape 3 ou 5 selon votre configuration).
+
+## 11. ⚠️ Correctif urgent : colonnes manquantes sur `wines_archive`
+
+Si vous aviez déjà exécuté les sections 7 et 8 dans leur ancienne
+version (colonnes uniquement sur `wines`), exécutez ce correctif
+maintenant. Depuis le commit `d84c67d`, l'archivage d'un vin
+(`−1 bue` / `Tout marquer comme bu`) recopie `emplacement`,
+`date_achat` et `caviste` vers `wines_archive`. Sans ces colonnes,
+**l'insertion dans l'historique échoue et la bouteille peut être
+décrémentée ou supprimée de la cave sans laisser de trace.**
+
+Idempotent — sans danger à exécuter même si les colonnes existent déjà :
+
+```sql
+alter table public.wines_archive add column if not exists emplacement text;
+alter table public.wines_archive add column if not exists date_achat date;
+alter table public.wines_archive add column if not exists caviste text;
+```
 
 ## Checklist de vérification
 
