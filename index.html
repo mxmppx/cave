@@ -1081,6 +1081,7 @@
 
   <!-- ── TAB : À BOIRE ─────────────────────────── -->
   <div class="section hidden" id="tab-a-boire">
+    <button class="btn-save" id="btnPickWine" style="width:100%;margin-bottom:12px">🎲 Choisis-moi une bouteille</button>
     <div class="search-row">
       <input class="search-input" type="search" placeholder="Rechercher..." id="aBoireSearch" />
     </div>
@@ -2053,6 +2054,7 @@ function renderStats() {
 let aBoireSearch = '';
 let aBoireColorFilter = 'tous';
 let aBoireSortMode = 'echeance';
+let aBoireFilteredCache = []; // dernière liste filtrée, utilisée par "Choisis-moi une bouteille"
 let aBoireCepageFilter = 'tous';
 let aBoireRegionFilter = 'tous';
 let aBoirePaysFilter = 'tous';
@@ -2217,6 +2219,7 @@ function renderABoire() {
   });
 
   filtered = sortABoire(filtered);
+  aBoireFilteredCache = filtered;
 
   if (!prêts.length) {
     list.innerHTML = `<div class="empty"><div class="empty-icon">⏳</div><h3>Rien à boire pour l'instant</h3><p>Vos vins ne sont pas encore prêts.</p></div>`;
@@ -2250,6 +2253,26 @@ function renderABoire() {
     card.addEventListener('click', () => openDetail(card.dataset.id));
   });
 }
+
+// Tirage pondéré : privilégie les vins dont la fenêtre est dépassée ou urgente
+function pickWeightedWine(list) {
+  const poids = { passe: 3, urgent: 2, pret: 1, attendre: 1 };
+  const tirage = [];
+  list.forEach(w => {
+    const n = poids[getStatut(w)] || 1;
+    for (let i = 0; i < n; i++) tirage.push(w);
+  });
+  return tirage[Math.floor(Math.random() * tirage.length)];
+}
+
+document.getElementById('btnPickWine').addEventListener('click', () => {
+  if (!aBoireFilteredCache.length) {
+    showToast('Aucun vin ne correspond à ces filtres');
+    return;
+  }
+  const picked = pickWeightedWine(aBoireFilteredCache);
+  openDetail(picked.id);
+});
 
 // ── Historique / Archive ───────────────────────────────
 let archive = [];
