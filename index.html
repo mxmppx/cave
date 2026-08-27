@@ -4091,13 +4091,17 @@ async function doRestore(mode) {
   const activeBtn = mode === 'remplacer' ? replaceBtn : mergeBtn;
   const originalLabel = activeBtn.textContent;
   activeBtn.textContent = 'Restauration…';
+  let restorePhase = null;
 
   try {
     if (mode === 'remplacer') {
-      const { error: delWinesErr } = await db.from('wines').delete().not('id', 'is', null);
-      if (delWinesErr) throw delWinesErr;
-      const { error: delArchiveErr } = await db.from('wines_archive').delete().not('id', 'is', null);
-      if (delArchiveErr) throw delArchiveErr;
+      // Insère d'abord les nouvelles données, ne supprime les anciennes
+      // qu'une fois les insertions confirmées : si une insertion échoue,
+      // les données existantes restent intactes (au pire une insertion
+      // partielle à nettoyer, jamais une perte totale).
+      const oldWineIds = wines.map(w => w.id);
+      const oldArchiveIds = archive.map(a => a.id);
+      restorePhase = 'insertion';
 
       if (cave.length) {
         const { error } = await db.from('wines').insert(cave.map(stripRowForInsert));
@@ -4105,6 +4109,16 @@ async function doRestore(mode) {
       }
       if (historique.length) {
         const { error } = await db.from('wines_archive').insert(historique.map(stripRowForInsert));
+        if (error) throw error;
+      }
+
+      restorePhase = 'nettoyage';
+      if (oldWineIds.length) {
+        const { error } = await db.from('wines').delete().in('id', oldWineIds);
+        if (error) throw error;
+      }
+      if (oldArchiveIds.length) {
+        const { error } = await db.from('wines_archive').delete().in('id', oldArchiveIds);
         if (error) throw error;
       }
     } else {
@@ -4136,7 +4150,12 @@ async function doRestore(mode) {
     await loadAppData();
   } catch (err) {
     console.error(err);
-    showToast(`Erreur lors de la restauration : ${err.message || err.hint || 'réponse inattendue'}`);
+    const detail = err.message || err.hint || 'réponse inattendue';
+    if (restorePhase === 'nettoyage') {
+      showToast(`Nouvelles données importées, mais le nettoyage des anciennes a échoué (${detail}) — cave et historique peuvent contenir des doublons à vérifier.`);
+    } else {
+      showToast(`Échec de la restauration (${detail}) — vos données existantes n'ont pas été modifiées.`);
+    }
   } finally {
     mergeBtn.disabled = false;
     replaceBtn.disabled = false;
