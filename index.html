@@ -1615,10 +1615,27 @@ function photoOrEmoji(w, size = 52) {
 // ── Render cave ───────────────────────────────────────
 let sortMode = 'nom';
 
+// Identité d'une référence de vin, mutualisée pour la détection de doublon,
+// la restauration depuis l'historique et le compteur "déjà bu" : nom et
+// domaine normalisés (accents/casse/ponctuation ignorés) + millésime.
+function normaliserTexte(s) {
+  return (s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+}
+
+function isSameWineReference(a, b) {
+  return normaliserTexte(a.nom) === normaliserTexte(b.nom)
+    && normaliserTexte(a.domaine) === normaliserTexte(b.domaine)
+    && (a.millesime || null) === (b.millesime || null);
+}
+
 function getDejaBuCount(w) {
-  // Compte les bouteilles archivées du même nom + domaine (référence identique)
+  // Compte les bouteilles archivées correspondant à la même référence (nom + domaine + millésime)
   return archive
-    .filter(a => a.nom === w.nom && (a.domaine || '') === (w.domaine || ''))
+    .filter(a => isSameWineReference(a, w))
     .reduce((s, a) => s + (a.quantite_bue || 0), 0);
 }
 
@@ -2737,12 +2754,9 @@ function openArchiveDetail(id) {
   document.getElementById('btnRestoreCave').addEventListener('click', async () => {
     if (!confirm(`Remettre "${w.nom}" dans la cave (${w.quantite_bue} bouteille${w.quantite_bue > 1 ? 's' : ''}) ?`)) return;
 
-    // Cherche une fiche identique déjà en cave (même nom + domaine) pour fusionner
-    // plutôt que de créer une entrée séparée
-    const existing = wines.find(x =>
-      x.nom.trim().toLowerCase() === w.nom.trim().toLowerCase() &&
-      (x.domaine || '').trim().toLowerCase() === (w.domaine || '').trim().toLowerCase()
-    );
+    // Cherche une fiche identique déjà en cave (même référence : nom + domaine + millésime)
+    // pour fusionner plutôt que de créer une entrée séparée
+    const existing = wines.find(x => isSameWineReference(x, w));
 
     if (existing) {
       const newQty = (existing.quantite || 0) + (w.quantite_bue || 0);
@@ -3184,10 +3198,7 @@ document.getElementById('btnFormSave').addEventListener('click', async () => {
 
   // Détection de doublon uniquement en mode ajout (pas en édition)
   if (!editingId) {
-    const duplicate = wines.find(w =>
-      w.nom.trim().toLowerCase() === nom.toLowerCase() &&
-      (w.domaine || '').trim().toLowerCase() === (payload.domaine || '').trim().toLowerCase()
-    );
+    const duplicate = wines.find(w => isSameWineReference(w, payload));
     if (duplicate) {
       openDuplicateModal(duplicate, payload);
       return;
