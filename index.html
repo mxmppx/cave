@@ -1044,41 +1044,90 @@
 
   <!-- ── TAB : STATS ────────────────────────────── -->
   <div class="section hidden" id="tab-stats">
-    <div class="filters" id="statsColorFilters">
-      <button class="filter-chip active" data-filter="tous">Tous</button>
-      <button class="filter-chip" data-filter="rouge">🍷 Rouge</button>
-      <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
-      <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
-      <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
+    <div class="filters" id="statsViewToggle">
+      <button class="filter-chip active" data-view="stock">📦 Stock</button>
+      <button class="filter-chip" data-view="conso">🍷 Consommation</button>
     </div>
-    <div class="filters-grid">
-    <div class="sort-row">
-      <span class="sort-label">Cépage</span>
-      <select class="form-select sort-select" id="statsCepageFilterSelect">
-        <option value="tous">Tous les cépages</option>
-      </select>
+
+    <div id="statsStockView">
+      <div class="filters" id="statsColorFilters">
+        <button class="filter-chip active" data-filter="tous">Tous</button>
+        <button class="filter-chip" data-filter="rouge">🍷 Rouge</button>
+        <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
+        <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
+        <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
+      </div>
+      <div class="filters-grid">
+      <div class="sort-row">
+        <span class="sort-label">Cépage</span>
+        <select class="form-select sort-select" id="statsCepageFilterSelect">
+          <option value="tous">Tous les cépages</option>
+        </select>
+      </div>
+      <div class="sort-row">
+        <span class="sort-label">Région</span>
+        <select class="form-select sort-select" id="statsRegionFilterSelect">
+          <option value="tous">Toutes les régions</option>
+        </select>
+      </div>
+      <div class="sort-row">
+        <span class="sort-label">Pays</span>
+        <select class="form-select sort-select" id="statsPaysFilterSelect">
+          <option value="tous">Tous les pays</option>
+        </select>
+      </div>
+      <div class="sort-row">
+        <span class="sort-label">À boire avec</span>
+        <select class="form-select sort-select" id="statsAccordFilterSelect">
+          <option value="tous">Tous les accords</option>
+        </select>
+      </div>
+      </div>
+      <div class="stat-grid" id="statsGrid">
+        <div class="loading" style="grid-column:1/-1">Chargement…</div>
+      </div>
     </div>
-    <div class="sort-row">
-      <span class="sort-label">Région</span>
-      <select class="form-select sort-select" id="statsRegionFilterSelect">
-        <option value="tous">Toutes les régions</option>
-      </select>
-    </div>
-    <div class="sort-row">
-      <span class="sort-label">Pays</span>
-      <select class="form-select sort-select" id="statsPaysFilterSelect">
-        <option value="tous">Tous les pays</option>
-      </select>
-    </div>
-    <div class="sort-row">
-      <span class="sort-label">À boire avec</span>
-      <select class="form-select sort-select" id="statsAccordFilterSelect">
-        <option value="tous">Tous les accords</option>
-      </select>
-    </div>
-    </div>
-    <div class="stat-grid" id="statsGrid">
-      <div class="loading" style="grid-column:1/-1">Chargement…</div>
+
+    <div id="statsConsoView" class="hidden">
+      <div class="filters" id="historiqueColorFilters">
+        <button class="filter-chip active" data-filter="tous">Tous</button>
+        <button class="filter-chip" data-filter="rouge">🍷 Rouge</button>
+        <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
+        <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
+        <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
+      </div>
+      <div class="filters">
+        <button class="filter-chip active" data-coup-de-coeur="tous">Tous</button>
+        <button class="filter-chip" data-coup-de-coeur="favoris">⭐ Coups de cœur</button>
+        <button class="filter-chip" data-coup-de-coeur="a_racheter">🛒 À racheter</button>
+      </div>
+      <div class="filters-grid">
+      <div class="sort-row">
+        <span class="sort-label">Cépage</span>
+        <select class="form-select sort-select" id="historiqueCepageFilterSelect">
+          <option value="tous">Tous les cépages</option>
+        </select>
+      </div>
+      <div class="sort-row">
+        <span class="sort-label">Région</span>
+        <select class="form-select sort-select" id="historiqueRegionFilterSelect">
+          <option value="tous">Toutes les régions</option>
+        </select>
+      </div>
+      <div class="sort-row">
+        <span class="sort-label">Pays</span>
+        <select class="form-select sort-select" id="historiquePaysFilterSelect">
+          <option value="tous">Tous les pays</option>
+        </select>
+      </div>
+      <div class="sort-row">
+        <span class="sort-label">À boire avec</span>
+        <select class="form-select sort-select" id="historiqueAccordFilterSelect">
+          <option value="tous">Tous les accords</option>
+        </select>
+      </div>
+      </div>
+      <div class="stat-grid" id="historiqueStats"></div>
     </div>
   </div>
 
@@ -1140,20 +1189,9 @@
 
   <!-- ── TAB : HISTORIQUE ───────────────────────── -->
   <div class="section hidden" id="tab-historique">
+    <p class="scan-hint" style="margin-top:0">Le filtrage par couleur, cépage, région, pays, accord et coups de cœur/à racheter se règle dans l'onglet Stats → Consommation ; il s'applique aussi à ce journal.</p>
     <div class="search-row">
       <input class="search-input" type="search" placeholder="Rechercher..." id="historiqueSearch" />
-    </div>
-    <div class="filters" id="historiqueColorFilters">
-      <button class="filter-chip active" data-filter="tous">Tous</button>
-      <button class="filter-chip" data-filter="rouge">🍷 Rouge</button>
-      <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
-      <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
-      <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
-    </div>
-    <div class="filters">
-      <button class="filter-chip active" data-coup-de-coeur="tous">Tous</button>
-      <button class="filter-chip" data-coup-de-coeur="favoris">⭐ Coups de cœur</button>
-      <button class="filter-chip" data-coup-de-coeur="a_racheter">🛒 À racheter</button>
     </div>
     <div class="filters-grid">
     <div class="sort-row">
@@ -1170,32 +1208,7 @@
         <option value="nom">Nom (A → Z)</option>
       </select>
     </div>
-    <div class="sort-row">
-      <span class="sort-label">Cépage</span>
-      <select class="form-select sort-select" id="historiqueCepageFilterSelect">
-        <option value="tous">Tous les cépages</option>
-      </select>
     </div>
-    <div class="sort-row">
-      <span class="sort-label">Région</span>
-      <select class="form-select sort-select" id="historiqueRegionFilterSelect">
-        <option value="tous">Toutes les régions</option>
-      </select>
-    </div>
-    <div class="sort-row">
-      <span class="sort-label">Pays</span>
-      <select class="form-select sort-select" id="historiquePaysFilterSelect">
-        <option value="tous">Tous les pays</option>
-      </select>
-    </div>
-    <div class="sort-row">
-      <span class="sort-label">À boire avec</span>
-      <select class="form-select sort-select" id="historiqueAccordFilterSelect">
-        <option value="tous">Tous les accords</option>
-      </select>
-    </div>
-    </div>
-    <div class="stat-grid" id="historiqueStats" style="margin-bottom:16px"></div>
     <div class="wine-list" id="historiqueList">
       <div class="loading">Chargement…</div>
     </div>
@@ -1855,6 +1868,17 @@ function renderCave() {
 }
 
 // ── Render stats ──────────────────────────────────────
+document.getElementById('statsViewToggle').addEventListener('click', e => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  document.querySelectorAll('#statsViewToggle .filter-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  const view = chip.dataset.view;
+  document.getElementById('statsStockView').classList.toggle('hidden', view !== 'stock');
+  document.getElementById('statsConsoView').classList.toggle('hidden', view !== 'conso');
+  if (view === 'conso') renderHistoriqueStats();
+});
+
 let statsColorFilter = 'tous';
 let statsCepageFilter = 'tous';
 let statsRegionFilter = 'tous';
