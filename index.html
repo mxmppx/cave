@@ -1488,7 +1488,7 @@ async function doLogin() {
   }
   document.getElementById('login-password').value = '';
   hideLogin();
-  loadWines();
+  loadAppData();
 }
 
 async function logout() {
@@ -1553,6 +1553,13 @@ async function loadWines() {
     return;
   }
   wines = data || [];
+  renderCave();
+}
+
+async function loadAppData() {
+  await Promise.all([loadWines(), loadArchive()]);
+  // loadWines() peut avoir rendu Cave avant que loadArchive() ne remplisse
+  // `archive` : on re-render pour que le compteur "déjà bu" soit à jour.
   renderCave();
 }
 
@@ -2750,8 +2757,7 @@ function openArchiveDetail(id) {
 
     closeModal('modalDetail');
     showToast(existing ? 'Quantité fusionnée avec la fiche existante 🍷' : 'Vin remis en cave 🍷');
-    await loadArchive();
-    await loadWines();
+    await loadAppData();
   });
 
   document.getElementById('btnDeleteArchive').addEventListener('click', () => {
@@ -2848,8 +2854,7 @@ async function confirmArchive() {
   closeModal('modalArchive');
   showToast('Vin archivé 📖');
   archiveTarget = null;
-  await loadArchive();
-  await loadWines();
+  await loadAppData();
 }
 
 document.getElementById('btnArchiveConfirm').addEventListener('click', confirmArchive);
@@ -3635,12 +3640,7 @@ document.getElementById('btnExportJson').addEventListener('click', () => {
 (async () => {
   const { data: { session } } = await db.auth.getSession();
   if (!session) { showLogin(); return; }
-  loadWines();
-  // Charge l'archive en arrière-plan (silencieux) pour le compteur "déjà bu" dans Cave
-  db.from('wines_archive').select('*').order('date_consommation', { ascending: false })
-    .then(({ data, error }) => {
-      if (!error && data) { archive = data; renderCave(); }
-    });
+  loadAppData();
 })();
 
 db.auth.onAuthStateChange((event) => {
