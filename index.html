@@ -1527,10 +1527,10 @@
     <div class="modal-close-bar"><button class="modal-close-btn" data-close-modal="modalSettings" aria-label="Fermer">✕</button></div>
     <div class="modal-title">Réglages ⚙️</div>
     <div class="form-group">
-      <label class="form-label">Horizon "urgent" (années)</label>
-      <input class="form-input" id="settingsUrgentHorizon" type="number" min="1" max="10" />
+      <label class="form-label">Horizon "urgent" (mois)</label>
+      <input class="form-input" id="settingsUrgentHorizon" type="number" min="1" max="12" />
     </div>
-    <p class="scan-hint" style="margin-top:-10px">Un vin passe au statut "À boire !" quand il reste ce nombre d'années (ou moins) avant la fin de sa fenêtre de dégustation. Entre 1 et 10 ans, par défaut 1 an. Ce réglage n'est enregistré que sur cet appareil/navigateur — à régler séparément ailleurs si besoin.</p>
+    <p class="scan-hint" style="margin-top:-10px">Un vin passe au statut "À boire !" quand il reste ce nombre de mois (ou moins) avant la fin de sa fenêtre de dégustation. Entre 1 et 12 mois, par défaut 6 mois. Ce réglage n'est enregistré que sur cet appareil/navigateur — à régler séparément ailleurs si besoin.</p>
     <div class="form-actions">
       <button class="btn-save" id="btnSettingsSave" style="flex:1">Enregistrer</button>
     </div>
@@ -1680,14 +1680,35 @@ async function loadAppData() {
 
 // ── Helpers ───────────────────────────────────────────
 const YEAR = new Date().getFullYear();
-const URGENT_HORIZON_KEY = 'cave_urgent_horizon_years';
+const CURRENT_MONTH = new Date().getMonth(); // 0 = janvier, 11 = décembre
 
+const URGENT_HORIZON_KEY = 'cave_urgent_horizon_months';
+const URGENT_HORIZON_LEGACY_KEY = 'cave_urgent_horizon_years';
 const URGENT_HORIZON_MIN = 1;
-const URGENT_HORIZON_MAX = 10;
+const URGENT_HORIZON_MAX = 12;
+const URGENT_HORIZON_DEFAULT = 6;
+
+// Migration ponctuelle : l'horizon "urgent" était réglé en années (1-10),
+// il passe en mois (1-12) pour un réglage plus fin.
+(function migrateUrgentHorizonToMonths() {
+  if (localStorage.getItem(URGENT_HORIZON_KEY) !== null) return;
+  const legacyYears = parseFloat(localStorage.getItem(URGENT_HORIZON_LEGACY_KEY));
+  if (!Number.isInteger(legacyYears)) return;
+  const months = Math.min(URGENT_HORIZON_MAX, Math.max(URGENT_HORIZON_MIN, legacyYears * 12));
+  localStorage.setItem(URGENT_HORIZON_KEY, String(months));
+  localStorage.removeItem(URGENT_HORIZON_LEGACY_KEY);
+})();
 
 function getUrgentHorizon() {
   const v = parseFloat(localStorage.getItem(URGENT_HORIZON_KEY));
-  return Number.isInteger(v) && v >= URGENT_HORIZON_MIN && v <= URGENT_HORIZON_MAX ? v : 1;
+  return Number.isInteger(v) && v >= URGENT_HORIZON_MIN && v <= URGENT_HORIZON_MAX ? v : URGENT_HORIZON_DEFAULT;
+}
+
+// La fenêtre de dégustation n'a qu'une précision annuelle : le 31 décembre
+// de l'année "boire_avant" sert d'échéance implicite pour calculer le
+// nombre de mois restants.
+function monthsRemaining(finYear) {
+  return (finYear - YEAR) * 12 + (11 - CURRENT_MONTH);
 }
 
 function getStatut(w) {
@@ -1696,7 +1717,7 @@ function getStatut(w) {
   if (!debut && !fin) return null;
   if (fin && YEAR > fin) return 'passe';
   if (debut && YEAR < debut) return 'attendre';
-  if (fin && fin - YEAR <= getUrgentHorizon()) return 'urgent';
+  if (fin && monthsRemaining(fin) <= getUrgentHorizon()) return 'urgent';
   return 'pret';
 }
 
