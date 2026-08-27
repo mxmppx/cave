@@ -35,7 +35,6 @@
       --blanc:     #C8A84B;
       --rose:      #C4637A;
       --petillant: #3A7A6E;
-      --fortifie:  #5C3D7A;
       --pret:      #2D7A45;
       --attendre:  #8B6914;
       --urgent:    #B84B2A;
@@ -220,7 +219,6 @@
     .fill-blanc    { background: var(--blanc); }
     .fill-rose     { background: var(--rose); }
     .fill-petillant{ background: var(--petillant); }
-    .fill-fortifie { background: var(--fortifie); }
 
     /* ── Filters (cave view) ─────────────────────── */
     .filters {
@@ -993,7 +991,6 @@
       <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
       <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
       <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
-      <button class="filter-chip" data-filter="fortifié">🍶 Fortifié</button>
     </div>
     <div class="filters-grid">
     <div class="sort-row">
@@ -1046,7 +1043,6 @@
       <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
       <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
       <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
-      <button class="filter-chip" data-filter="fortifié">🍶 Fortifié</button>
     </div>
     <div class="filters-grid">
     <div class="sort-row">
@@ -1091,7 +1087,6 @@
       <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
       <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
       <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
-      <button class="filter-chip" data-filter="fortifié">🍶 Fortifié</button>
     </div>
     <div class="filters-grid">
     <div class="sort-row">
@@ -1147,7 +1142,6 @@
       <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
       <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
       <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
-      <button class="filter-chip" data-filter="fortifié">🍶 Fortifié</button>
     </div>
     <div class="filters">
       <button class="filter-chip active" data-coup-de-coeur="tous">Tous</button>
@@ -1296,9 +1290,6 @@
         <button class="couleur-option" data-c="pétillant">
           <span class="couleur-dot" style="background:var(--petillant)"></span>Pétillant
         </button>
-        <button class="couleur-option" data-c="fortifié">
-          <span class="couleur-dot" style="background:var(--fortifie)"></span>Fortifié
-        </button>
       </div>
     </div>
 
@@ -1316,19 +1307,21 @@
         <input class="form-input" id="fBoireAvant" type="number" placeholder="2030" min="2000" max="2060" />
       </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Prix d'achat (CHF)</label>
-      <input class="form-input" id="fPrix" type="number" placeholder="0.00" step="0.01" />
+    <div class="form-row-3">
+      <div class="form-group">
+        <label class="form-label">Prix (CHF)</label>
+        <input class="form-input" id="fPrix" type="number" placeholder="0.00" step="0.01" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date d'achat</label>
+        <input class="form-input" id="fDateAchat" type="date" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Caviste</label>
+        <input class="form-input" id="fCaviste" type="text" placeholder="Mövenpick Wein, Denner…" />
+      </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Date d'achat</label>
-      <input class="form-input" id="fDateAchat" type="date" />
-    </div>
-    <div class="form-group">
-      <label class="form-label">Caviste / vendeur</label>
-      <input class="form-input" id="fCaviste" type="text" placeholder="Mövenpick Wein, Denner…" />
-    </div>
-    <div class="form-group">
+    <div class="form-group span-2">
       <label class="form-label">Emplacement</label>
       <input class="form-input" id="fEmplacement" type="text" placeholder="Casier B12, cave beau-frère…" />
     </div>
@@ -1628,13 +1621,13 @@ function statutBadge(statut) {
 }
 
 const COULEUR_EMOJI = {
-  rouge: '🍷', blanc: '🥂', 'rosé': '🌸', 'pétillant': '✨', 'fortifié': '🍶'
+  rouge: '🍷', blanc: '🥂', 'rosé': '🌸', 'pétillant': '✨'
 };
 const COULEUR_VAR = {
-  rouge: '--rouge', blanc: '--blanc', 'rosé': '--rose', 'pétillant': '--petillant', 'fortifié': '--fortifie'
+  rouge: '--rouge', blanc: '--blanc', 'rosé': '--rose', 'pétillant': '--petillant'
 };
 const COULEUR_CLASS = {
-  rouge: 'fill-rouge', blanc: 'fill-blanc', 'rosé': 'fill-rose', 'pétillant': 'fill-petillant', 'fortifié': 'fill-fortifie'
+  rouge: 'fill-rouge', blanc: 'fill-blanc', 'rosé': 'fill-rose', 'pétillant': 'fill-petillant'
 };
 
 function photoOrEmoji(w, size = 52) {
@@ -3478,7 +3471,7 @@ MILLESIME: [année à 4 chiffres]
 REGION: [région ou appellation]
 PAYS: [pays d'origine]
 CEPAGE: [cépage(s) — voir règle ci-dessous]
-COULEUR: [un seul mot parmi : rouge, blanc, rosé, pétillant, fortifié]
+COULEUR: [un seul mot parmi : rouge, blanc, rosé, pétillant]
 BOIRE_DES: [année à 4 chiffres]
 BOIRE_AVANT: [année à 4 chiffres]
 ACCORD_METS: [2 à 4 suggestions d'accords mets-vin, séparées par des virgules — voir règle ci-dessous]
@@ -3536,7 +3529,7 @@ function parseAiImportText(raw) {
   return result;
 }
 
-const COULEUR_VALIDES = ['rouge', 'blanc', 'rosé', 'pétillant', 'fortifié'];
+const COULEUR_VALIDES = ['rouge', 'blanc', 'rosé', 'pétillant'];
 
 document.getElementById('btnAiImportParse').addEventListener('click', () => {
   const raw = document.getElementById('aiImportText').value;
