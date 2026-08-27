@@ -3707,15 +3707,16 @@ BOIRE_DES: [année à 4 chiffres]
 BOIRE_AVANT: [année à 4 chiffres]
 ACCORD_METS: [2 à 4 suggestions d'accords mets-vin, séparées par des virgules — voir règle ci-dessous]
 PRIX_CHF: [prix en francs suisses]
+CAVISTE: [nom du vendeur suisse où ce prix a été trouvé — voir règle ci-dessous]
 
 Règles pour chaque champ :
 - NOM, DOMAINE, MILLESIME, REGION, PAYS, COULEUR : lis-les directement sur l'étiquette. Si une info n'est pas visible, laisse la valeur vide.
 - CEPAGE : si le cépage n'est pas écrit explicitement sur l'étiquette, déduis-le à partir de l'appellation et de la région (ex: un Chablis est en Chardonnay, un Gevrey-Chambertin est en Pinot Noir, un Côtes-de-Provence rosé est souvent Grenache/Cinsault/Syrah). Indique le ou les cépages les plus probables. Si vraiment aucune déduction fiable n'est possible, laisse vide plutôt que d'inventer.
 - BOIRE_DES et BOIRE_AVANT : estime la fenêtre de dégustation optimale en te basant sur le type de vin, la région, le millésime et le potentiel de garde habituel de ce style de vin (ex: un Beaujolais primeur se boit jeune, un grand Bordeaux ou un Barolo peut se garder 10-20 ans). Base-toi sur tes connaissances générales d'œnologie, pas sur l'étiquette elle-même.
 - ACCORD_METS : en te basant sur la couleur, le cépage et le style du vin, indique avec quoi il se marie le mieux. Choisis de préférence parmi : Viande rouge, Viande blanche, Volaille, Gibier, Poisson, Fruits de mer, Fromage, Charcuterie, Apéritif, Cuisine épicée, Végétarien, Dessert. Tu peux préciser entre parenthèses si utile (ex: "Fromage (chèvre)").
-- PRIX_CHF : cherche en ligne ce vin (même nom, domaine et millésime) chez des vendeurs ou cavistes basés en Suisse (ex: Mövenpick Wein, Globus Vins, Denner, Coop, Conforama Vins, Vinatura, Ma Cave à Vin, Gerstl, etc.) et indique le prix trouvé en chiffres uniquement (ex: 24.90). Si aucun vendeur suisse ne propose ce vin, estime un prix plausible en CHF à partir de vins comparables (même appellation, producteur ou gamme) et ajoute la mention "(estimation)" après le chiffre (ex: 18.50 (estimation)).
+- PRIX_CHF et CAVISTE : cherche en ligne ce vin (même nom, domaine et millésime) chez des vendeurs ou cavistes basés en Suisse (ex: Mövenpick Wein, Globus Vins, Denner, Coop, Conforama Vins, Vinatura, Ma Cave à Vin, Gerstl, etc.). Indique dans PRIX_CHF le prix trouvé en chiffres uniquement (ex: 24.90) et dans CAVISTE le nom du vendeur correspondant. Si aucun vendeur suisse ne propose ce vin, estime un prix plausible en CHF à partir de vins comparables (même appellation, producteur ou gamme), ajoute la mention "(estimation)" après le chiffre dans PRIX_CHF (ex: 18.50 (estimation)), et laisse CAVISTE vide.
 
-Réponds avec EXACTEMENT ces 11 lignes, dans cet ordre, rien d'autre.`;
+Réponds avec EXACTEMENT ces 12 lignes, dans cet ordre, rien d'autre.`;
 
 document.getElementById('btnCopyPrompt').addEventListener('click', async () => {
   try {
@@ -3742,6 +3743,7 @@ function parseAiImportText(raw) {
     NOM: 'nom', DOMAINE: 'domaine', MILLESIME: 'millesime',
     REGION: 'region', PAYS: 'pays', CEPAGE: 'cepage', COULEUR: 'couleur',
     BOIRE_DES: 'boireDes', BOIRE_AVANT: 'boireAvant', ACCORD_METS: 'accordMets', PRIX_CHF: 'prix',
+    CAVISTE: 'caviste',
   };
   const result = {};
   const lines = raw.split('\n');
@@ -3826,6 +3828,7 @@ document.getElementById('btnAiImportParse').addEventListener('click', () => {
       prixEstime = /estim/i.test(parsed.prix);
     }
   }
+  if (parsed.caviste) document.getElementById('fCaviste').value = parsed.caviste;
 
   showToast(prixEstime
     ? 'Champs pré-remplis — prix estimé (aucun vendeur suisse trouvé), vérifie avant d’enregistrer ✓'
