@@ -201,6 +201,49 @@ alter table public.wines_archive add column if not exists date_achat date;
 alter table public.wines_archive add column if not exists caviste text;
 ```
 
+## 12. 🔍 Fonction de diagnostic (pour que Claude Code puisse vérifier le schéma)
+
+Cette session n'a pas d'accès direct à la base Supabase du projet — impossible
+de lister les colonnes existantes ou de savoir quelles migrations ci-dessus
+restent à exécuter. Cette fonction expose en lecture seule la liste des
+colonnes de `wines` et `wines_archive` (noms et types uniquement, aucune
+donnée), appelable via l'API REST publique avec la clé `anon` déjà présente
+dans `index.html` — elle ne donne accès à rien de plus que ce que révèle déjà
+le code source public du dépôt.
+
+```sql
+create or replace function public.debug_schema_check()
+returns table(table_name text, column_name text, data_type text, is_nullable text)
+language sql
+security definer
+set search_path = public
+as $$
+  select c.table_name, c.column_name, c.data_type, c.is_nullable
+  from information_schema.columns c
+  where c.table_schema = 'public'
+    and c.table_name in ('wines', 'wines_archive')
+  order by c.table_name, c.ordinal_position;
+$$;
+
+grant execute on function public.debug_schema_check() to anon, authenticated;
+```
+
+Une fois exécutée, n'importe qui (moi y compris, via `curl`) peut vérifier
+l'état réel du schéma avec :
+
+```sh
+curl -s 'https://rtxwaupsjwfmczyopuhk.supabase.co/rest/v1/rpc/debug_schema_check' \
+  -H 'apikey: sb_publishable_3sIlqi_GerHO1T2A9hHv4A_oFsC48lP' \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+```
+
+Pour révoquer l'accès une fois le diagnostic terminé (optionnel) :
+
+```sql
+drop function public.debug_schema_check();
+```
+
 ## Checklist de vérification
 
 - [ ] Navigation privée → écran de login apparaît, aucune donnée visible

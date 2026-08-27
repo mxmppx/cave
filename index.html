@@ -3678,8 +3678,9 @@ async function doSaveWine(payload) {
   btn.disabled = false;
 
   if (err) { console.error(err); showToast('Erreur lors de l\'enregistrement'); return; }
+  const wasEditing = !!editingId;
   closeModal('modalForm');
-  showToast(editingId ? 'Vin modifié ✓' : 'Vin ajouté 🍾');
+  showToast(wasEditing ? 'Vin modifié ✓' : 'Vin ajouté 🍾');
   await loadWines();
 }
 
