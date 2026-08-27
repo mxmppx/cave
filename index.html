@@ -1527,7 +1527,7 @@
     <div class="modal-title">Vin déjà en cave ? 🤔</div>
     <div id="duplicateContent"></div>
     <div class="form-actions" style="flex-direction:column;gap:8px;margin-top:18px">
-      <button class="btn-save" id="btnDupMerge" style="flex:none;width:100%">Oui, fusionner les quantités</button>
+      <button class="btn-save" id="btnDupMerge" style="flex:none;width:100%">Oui, fusionner (quantité + champs vides complétés)</button>
       <button class="btn-cancel" id="btnDupSeparate" style="flex:none;width:100%">Non, créer une entrée séparée</button>
       <button class="btn-delete-full" id="btnDupCancel">Annuler</button>
     </div>
@@ -3566,6 +3566,9 @@ function openDuplicateModal(existing, newPayload) {
       <div class="dup-row"><span>Couleur</span><b>${w.couleur || '—'}</b></div>
       <div class="dup-row"><span>Quantité</span><b>${w.quantite}</b></div>
       <div class="dup-row"><span>Prix</span><b>${w.prix_achat ? w.prix_achat + ' CHF' : '—'}</b></div>
+      <div class="dup-row"><span>Emplacement</span><b>${w.emplacement || '—'}</b></div>
+      <div class="dup-row"><span>Date d'achat</span><b>${w.date_achat ? new Date(w.date_achat).toLocaleDateString('fr-CH') : '—'}</b></div>
+      <div class="dup-row"><span>Caviste</span><b>${w.caviste || '—'}</b></div>
     </div>`;
 
   document.getElementById('duplicateContent').innerHTML = `
@@ -3579,15 +3582,29 @@ function openDuplicateModal(existing, newPayload) {
   document.getElementById('modalDuplicate').classList.remove('hidden');
 }
 
+// Champs qu'on complète sur la fiche existante avec la nouvelle saisie,
+// uniquement s'ils sont vides — jamais d'écrasement d'une valeur déjà saisie
+const DUP_MERGE_FILLABLE_FIELDS = [
+  'region', 'cepage', 'accord_mets', 'prix_achat', 'boire_a_partir_de',
+  'boire_avant', 'emplacement', 'date_achat', 'caviste', 'notes',
+];
+
 document.getElementById('btnDupMerge').addEventListener('click', async () => {
   if (!duplicateContext) return;
   const { existing, newPayload } = duplicateContext;
   const newQty = (existing.quantite || 0) + (newPayload.quantite || 0);
 
+  const update = { quantite: newQty };
+  DUP_MERGE_FILLABLE_FIELDS.forEach(key => {
+    if ((existing[key] === null || existing[key] === undefined || existing[key] === '') && newPayload[key]) {
+      update[key] = newPayload[key];
+    }
+  });
+
   closeModal('modalDuplicate');
   closeModal('modalForm');
 
-  await db.from('wines').update({ quantite: newQty }).eq('id', existing.id);
+  await db.from('wines').update(update).eq('id', existing.id);
   showToast(`Quantité mise à jour : ${newQty} bouteilles`);
   duplicateContext = null;
   await loadWines();
