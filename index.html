@@ -1530,7 +1530,7 @@
       <label class="form-label">Horizon "urgent" (mois)</label>
       <input class="form-input" id="settingsUrgentHorizon" type="number" min="1" max="12" />
     </div>
-    <p class="scan-hint" style="margin-top:-10px">Un vin passe au statut "À boire !" quand il reste ce nombre de mois (ou moins) avant la fin de sa fenêtre de dégustation. Entre 1 et 12 mois, par défaut 3 mois. Ce réglage n'est enregistré que sur cet appareil/navigateur — à régler séparément ailleurs si besoin.</p>
+    <p class="scan-hint" style="margin-top:-10px">Un vin passe au statut "À boire !" quand il reste ce nombre de mois (ou moins) avant la fin de sa fenêtre de dégustation. Entre 1 et 12 mois, par défaut 6 mois. Ce réglage n'est enregistré que sur cet appareil/navigateur — à régler séparément ailleurs si besoin.</p>
     <div class="form-actions">
       <button class="btn-save" id="btnSettingsSave" style="flex:1">Enregistrer</button>
     </div>
@@ -1686,7 +1686,7 @@ const URGENT_HORIZON_KEY = 'cave_urgent_horizon_months';
 const URGENT_HORIZON_LEGACY_KEY = 'cave_urgent_horizon_years';
 const URGENT_HORIZON_MIN = 1;
 const URGENT_HORIZON_MAX = 12;
-const URGENT_HORIZON_DEFAULT = 3;
+const URGENT_HORIZON_DEFAULT = 6;
 
 // Migration ponctuelle : l'horizon "urgent" était réglé en années (1-10),
 // il passe en mois (1-12) pour un réglage plus fin.

@@ -165,13 +165,13 @@ test('getStatut : passé, à attendre, urgent, prêt (horizon = 12 mois, le maxi
   }
 });
 
-test('getUrgentHorizon retombe sur la valeur par défaut (3 mois) si la valeur stockée est hors bornes ou invalide', () => {
+test('getUrgentHorizon retombe sur la valeur par défaut (6 mois) si la valeur stockée est hors bornes ou invalide', () => {
   const key = 'cave_urgent_horizon_months';
   try {
     app.localStorage.setItem(key, '99');
-    assert.equal(app.getUrgentHorizon(), 3);
+    assert.equal(app.getUrgentHorizon(), 6);
     app.localStorage.setItem(key, '2.5');
-    assert.equal(app.getUrgentHorizon(), 3);
+    assert.equal(app.getUrgentHorizon(), 6);
     app.localStorage.setItem(key, '4');
     assert.equal(app.getUrgentHorizon(), 4);
   } finally {
