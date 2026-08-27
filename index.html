@@ -1135,7 +1135,8 @@
 
   <!-- ── TAB : À BOIRE ─────────────────────────── -->
   <div class="section hidden" id="tab-a-boire">
-    <button class="btn-save" id="btnPickWine" style="width:100%;margin-bottom:12px">🎲 Choisis-moi une bouteille</button>
+    <button class="btn-save" id="btnPickWine" style="width:100%">🎲 Choisis-moi une bouteille</button>
+    <p class="scan-hint" style="margin-top:8px">Respecte les filtres ci-dessous (couleur, accord, prix max…) — réglez-les d'abord pour orienter le choix.</p>
     <div class="search-row">
       <input class="search-input" type="search" placeholder="Rechercher..." id="aBoireSearch" />
     </div>
@@ -1182,6 +1183,10 @@
       <select class="form-select sort-select" id="aBoireAccordFilterSelect">
         <option value="tous">Tous les accords</option>
       </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">Prix max (CHF)</span>
+      <input class="form-input" style="height:auto;padding:6px 8px;font-size:12px" id="aBoirePrixMaxFilter" type="number" min="0" placeholder="Pas de limite" />
     </div>
     </div>
     <div class="wine-list" id="aBoireList">
@@ -2086,9 +2091,15 @@ let aBoireCepageFilter = 'tous';
 let aBoireRegionFilter = 'tous';
 let aBoirePaysFilter = 'tous';
 let aBoireAccordFilter = 'tous';
+let aBoirePrixMaxFilter = null;
 
 document.getElementById('aBoireSearch').addEventListener('input', e => {
   aBoireSearch = e.target.value;
+  renderABoire();
+});
+
+document.getElementById('aBoirePrixMaxFilter').addEventListener('input', e => {
+  aBoirePrixMaxFilter = e.target.value === '' ? null : parseFloat(e.target.value);
   renderABoire();
 });
 
@@ -2236,13 +2247,14 @@ function renderABoire() {
     const matchRegion = aBoireRegionFilter === 'tous' || w.region === aBoireRegionFilter;
     const matchPays = aBoirePaysFilter === 'tous' || w.pays === aBoirePaysFilter;
     const matchAccord = aBoireAccordFilter === 'tous' || splitAccords(w.accord_mets).includes(aBoireAccordFilter);
+    const matchPrix = aBoirePrixMaxFilter == null || !w.prix_achat || w.prix_achat <= aBoirePrixMaxFilter;
     const q = aBoireSearch.toLowerCase();
     const matchSearch = !q || w.nom.toLowerCase().includes(q)
       || (w.domaine || '').toLowerCase().includes(q)
       || (w.region || '').toLowerCase().includes(q)
       || (w.cepage || '').toLowerCase().includes(q)
       || (w.accord_mets || '').toLowerCase().includes(q);
-    return matchCouleur && matchCepage && matchRegion && matchPays && matchAccord && matchSearch;
+    return matchCouleur && matchCepage && matchRegion && matchPays && matchAccord && matchPrix && matchSearch;
   });
 
   filtered = sortABoire(filtered);
