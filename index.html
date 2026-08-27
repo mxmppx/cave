@@ -1151,6 +1151,7 @@
     <div class="filters">
       <button class="filter-chip active" data-coup-de-coeur="tous">Tous</button>
       <button class="filter-chip" data-coup-de-coeur="favoris">⭐ Coups de cœur</button>
+      <button class="filter-chip" data-coup-de-coeur="a_racheter">🛒 À racheter</button>
     </div>
     <div class="filters-grid">
     <div class="sort-row">
@@ -2236,6 +2237,12 @@ function renderABoire() {
 let archive = [];
 let historiqueSearch = '';
 let historiqueFilter = 'tous';
+
+function matchHistoriqueFilter(w) {
+  if (historiqueFilter === 'favoris') return w.note_sur_5 >= 4;
+  if (historiqueFilter === 'a_racheter') return !!w.a_racheter;
+  return true;
+}
 let historiqueCepageFilter = 'tous';
 let historiqueRegionFilter = 'tous';
 let historiquePaysFilter = 'tous';
@@ -2395,7 +2402,7 @@ function renderHistoriqueStats() {
   if (!archive.length) { grid.innerHTML = ''; return; }
 
   const filteredArchive = archive.filter(w => {
-    const matchFavoris = historiqueFilter === 'tous' || (w.note_sur_5 >= 4);
+    const matchFavoris = matchHistoriqueFilter(w);
     const matchCouleur = historiqueCouleurFilter === 'tous' || w.couleur === historiqueCouleurFilter;
     const matchCepage = historiqueCepageFilter === 'tous' || splitCepages(w.cepage).includes(historiqueCepageFilter);
     const matchRegion = historiqueRegionFilter === 'tous' || w.region === historiqueRegionFilter;
@@ -2523,7 +2530,7 @@ function renderHistorique() {
   const list = document.getElementById('historiqueList');
 
   let filtered = archive.filter(w => {
-    const matchFavoris = historiqueFilter === 'tous' || (w.note_sur_5 >= 4);
+    const matchFavoris = matchHistoriqueFilter(w);
     const matchCouleur = historiqueCouleurFilter === 'tous' || w.couleur === historiqueCouleurFilter;
     const matchCepage = historiqueCepageFilter === 'tous' || splitCepages(w.cepage).includes(historiqueCepageFilter);
     const matchRegion = historiqueRegionFilter === 'tous' || w.region === historiqueRegionFilter;
@@ -2559,6 +2566,7 @@ function renderHistorique() {
           <div class="wine-sub">${sub || '—'}</div>
           ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${w.accord_mets}</div>` : ''}
           ${starsHtml(w.note_sur_5)}
+          ${w.a_racheter ? `<div class="wine-sub" style="font-size:11px;color:var(--gold);margin-top:2px">🛒 À racheter</div>` : ''}
           ${w.note_degustation ? `<div class="wine-sub" style="font-style:italic;margin-top:2px">💬 ${w.note_degustation}</div>` : ''}
         </div>
         <div class="wine-right">
@@ -2761,6 +2769,7 @@ function openArchiveDetail(id) {
     ${w.notes ? `<div class="detail-notes">📝 Notes d'origine : ${w.notes}</div>` : ''}
     ${w.note_degustation ? `<div class="detail-notes">💬 ${w.note_degustation}</div>` : ''}
     <div class="detail-actions">
+      <button class="btn-edit" id="btnToggleRacheter">${w.a_racheter ? '🛒 Retirer de "à racheter"' : '🛒 Marquer à racheter'}</button>
       <button class="btn-edit" id="btnEditArchiveNote">✏️ Modifier la note</button>
       <button class="btn-consume" id="btnRestoreCave">↩ Remettre en cave</button>
       <button class="btn-edit" id="btnDeleteArchive" style="background:var(--urgent)">🗑 Supprimer définitivement</button>
@@ -2770,6 +2779,16 @@ function openArchiveDetail(id) {
   if (w.photo_url) {
     document.getElementById('detailPhotoZoom').addEventListener('click', () => openImageViewer(w.photo_url));
   }
+
+  document.getElementById('btnToggleRacheter').addEventListener('click', async () => {
+    const newVal = !w.a_racheter;
+    await db.from('wines_archive').update({ a_racheter: newVal }).eq('id', w.id);
+    w.a_racheter = newVal;
+    showToast(newVal ? 'Ajouté à "à racheter" 🛒' : 'Retiré de "à racheter"');
+    renderHistoriqueStats();
+    renderHistorique();
+    openArchiveDetail(id);
+  });
 
   document.getElementById('btnEditArchiveNote').addEventListener('click', () => {
     openEditArchiveModal(w);
@@ -3666,6 +3685,7 @@ const HISTORIQUE_CSV_HEADERS = [
   { key: 'date_consommation', label: 'Bu le' },
   { key: 'note_sur_5', label: 'Note (/5)' },
   { key: 'note_degustation', label: 'Commentaire de dégustation' },
+  { key: 'a_racheter', label: 'À racheter' },
   { key: 'notes', label: 'Notes d\'origine' },
 ];
 

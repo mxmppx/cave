@@ -158,6 +158,16 @@ Pas nécessaire sur `wines_archive` pour l'instant : ces informations ne
 sont pas recopiées à l'archivage (seul le prix payé l'est déjà via
 `prix_achat`).
 
+## 9. Colonne "a_racheter" (liste à racheter)
+
+Permet de marquer un vin dégusté et apprécié pour un futur réachat,
+depuis sa fiche dans l'historique (bouton "Marquer à racheter"), et de
+le retrouver via le filtre "🛒 À racheter" de l'onglet Historique.
+
+```sql
+alter table public.wines_archive add column a_racheter boolean not null default false;
+```
+
 ## Checklist de vérification
 
 - [ ] Navigation privée → écran de login apparaît, aucune donnée visible
