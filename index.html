@@ -501,7 +501,7 @@
         gap: 0 20px;
         align-items: start;
       }
-      .form-grid-desktop .form-group.span-2 { grid-column: 1 / -1; }
+      .form-grid-desktop .span-2 { grid-column: 1 / -1; }
       .form-group { margin-bottom: 10px; }
       .form-label { margin-bottom: 4px; font-size: 10px; }
       .form-input, .form-select, .form-textarea { padding: 9px 12px; font-size: 14px; }
@@ -568,6 +568,8 @@
     .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--gold); }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .form-row-achat { grid-template-columns: 1fr 1fr; }
+    .form-row-achat .form-group:last-child { grid-column: 1 / -1; }
 
     /* ── Colour picker ───────────────────────────── */
     .couleur-picker {
@@ -1327,7 +1329,7 @@
         <input class="form-input" id="fBoireAvant" type="number" placeholder="2030" min="2000" max="2060" />
       </div>
     </div>
-    <div class="form-row-3">
+    <div class="form-row-3 form-row-achat span-2">
       <div class="form-group">
         <label class="form-label">Prix (CHF)</label>
         <input class="form-input" id="fPrix" type="number" placeholder="0.00" step="0.01" />
@@ -1341,9 +1343,9 @@
         <input class="form-input" id="fCaviste" type="text" placeholder="Mövenpick Wein, Denner…" />
       </div>
     </div>
-    <div class="form-group span-2">
+    <div class="form-group">
       <label class="form-label">Emplacement</label>
-      <input class="form-input" id="fEmplacement" type="text" placeholder="Casier B12, cave beau-frère…" />
+      <input class="form-input" id="fEmplacement" type="text" placeholder="Ex : Casier B12" />
     </div>
     <div class="form-group span-2">
       <label class="form-label">Notes</label>
