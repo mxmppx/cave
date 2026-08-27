@@ -3031,9 +3031,17 @@ function openArchiveDetail(id) {
     document.getElementById('detailPhotoZoom').addEventListener('click', () => openImageViewer(w.photo_url));
   }
 
-  document.getElementById('btnToggleRacheter').addEventListener('click', async () => {
+  document.getElementById('btnToggleRacheter').addEventListener('click', async e => {
+    const btn = e.currentTarget;
     const newVal = !w.a_racheter;
-    await db.from('wines_archive').update({ a_racheter: newVal }).eq('id', w.id);
+    btn.disabled = true;
+    const { error } = await db.from('wines_archive').update({ a_racheter: newVal }).eq('id', w.id);
+    btn.disabled = false;
+    if (error) {
+      console.error('Erreur mise à jour à racheter:', error);
+      showToast(`Échec de la mise à jour : ${error.message || error.hint || 'réponse inattendue'}`);
+      return;
+    }
     w.a_racheter = newVal;
     showToast(newVal ? 'Ajouté à "à racheter" 🛒' : 'Retiré de "à racheter"');
     renderHistoriqueStats();
@@ -3045,18 +3053,21 @@ function openArchiveDetail(id) {
     openEditArchiveModal(w);
   });
 
-  document.getElementById('btnRestoreCave').addEventListener('click', async () => {
+  document.getElementById('btnRestoreCave').addEventListener('click', async e => {
     if (!confirm(`Remettre "${w.nom}" dans la cave (${w.quantite_bue} bouteille${w.quantite_bue > 1 ? 's' : ''}) ?`)) return;
+    const btn = e.currentTarget;
+    btn.disabled = true;
 
     // Cherche une fiche identique déjà en cave (même référence : nom + domaine + millésime)
     // pour fusionner plutôt que de créer une entrée séparée
     const existing = wines.find(x => isSameWineReference(x, w));
 
+    let writeErr;
     if (existing) {
       const newQty = (existing.quantite || 0) + (w.quantite_bue || 0);
-      await db.from('wines').update({ quantite: newQty }).eq('id', existing.id);
+      ({ error: writeErr } = await db.from('wines').update({ quantite: newQty }).eq('id', existing.id));
     } else {
-      await db.from('wines').insert({
+      ({ error: writeErr } = await db.from('wines').insert({
         nom: w.nom,
         domaine: w.domaine,
         millesime: w.millesime,
@@ -3074,10 +3085,28 @@ function openArchiveDetail(id) {
         emplacement: w.emplacement,
         date_achat: w.date_achat,
         caviste: w.caviste,
-      });
+      }));
     }
 
-    await db.from('wines_archive').delete().eq('id', w.id);
+    // Ne supprime l'entrée d'historique que si la bouteille a bien été
+    // recréée/fusionnée en cave — jamais avant, pour ne pas perdre la trace.
+    if (writeErr) {
+      console.error('Erreur remise en cave:', writeErr);
+      btn.disabled = false;
+      showToast(`Échec de la remise en cave : ${writeErr.message || writeErr.hint || 'réponse inattendue'}`);
+      return;
+    }
+
+    const { error: delErr } = await db.from('wines_archive').delete().eq('id', w.id);
+    btn.disabled = false;
+
+    if (delErr) {
+      console.error('Erreur suppression archive après remise en cave:', delErr);
+      showToast('Vin remis en cave, mais l\'entrée d\'historique n\'a pas pu être supprimée — vérifiez le journal.');
+      closeModal('modalDetail');
+      await loadAppData();
+      return;
+    }
 
     closeModal('modalDetail');
     showToast(existing ? 'Quantité fusionnée avec la fiche existante 🍷' : 'Vin remis en cave 🍷');
@@ -3103,7 +3132,17 @@ function openArchiveDetail(id) {
         renderCave();
       },
       async () => {
-        await db.from('wines_archive').delete().eq('id', w.id);
+        const { error } = await db.from('wines_archive').delete().eq('id', w.id);
+        if (error) {
+          // La suppression a échoué côté serveur alors que l'UI l'affichait
+          // déjà comme supprimée : on la remet pour rester cohérent.
+          console.error('Erreur suppression archive:', error);
+          showToast('La suppression a échoué côté serveur — le vin réapparaît dans l\'historique.');
+          archive.push(w);
+          renderHistorique();
+          renderHistoriqueStats();
+          renderCave();
+        }
       }
     );
   });
@@ -3322,10 +3361,16 @@ async function confirmEditArchive() {
     }
   }
 
-  await db.from('wines_archive').update(payload).eq('id', editArchiveTarget.id);
+  const { error } = await db.from('wines_archive').update(payload).eq('id', editArchiveTarget.id);
 
   btn.textContent = 'Enregistrer';
   btn.disabled = false;
+
+  if (error) {
+    console.error('Erreur modification dégustation:', error);
+    showToast(`Échec de l'enregistrement : ${error.message || error.hint || 'réponse inattendue'}`);
+    return;
+  }
 
   closeModal('modalEditArchive');
   closeModal('modalDetail');
@@ -3635,7 +3680,7 @@ const DUP_MERGE_FILLABLE_FIELDS = [
   'boire_avant', 'emplacement', 'date_achat', 'caviste', 'notes',
 ];
 
-document.getElementById('btnDupMerge').addEventListener('click', async () => {
+document.getElementById('btnDupMerge').addEventListener('click', async e => {
   if (!duplicateContext) return;
   const { existing, newPayload } = duplicateContext;
   const newQty = (existing.quantite || 0) + (newPayload.quantite || 0);
@@ -3647,10 +3692,19 @@ document.getElementById('btnDupMerge').addEventListener('click', async () => {
     }
   });
 
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  const { error } = await db.from('wines').update(update).eq('id', existing.id);
+  btn.disabled = false;
+
+  if (error) {
+    console.error('Erreur fusion doublon:', error);
+    showToast(`Échec de la fusion : ${error.message || error.hint || 'réponse inattendue'}`);
+    return;
+  }
+
   closeModal('modalDuplicate');
   closeModal('modalForm');
-
-  await db.from('wines').update(update).eq('id', existing.id);
   showToast(`Quantité mise à jour : ${newQty} bouteilles`);
   duplicateContext = null;
   await loadWines();
@@ -3670,10 +3724,18 @@ document.getElementById('btnDupCancel').addEventListener('click', () => {
 });
 
 // Delete
-document.getElementById('btnDelete').addEventListener('click', async () => {
+document.getElementById('btnDelete').addEventListener('click', async e => {
   if (!editingId) return;
   if (!confirm('Retirer cette fiche de la cave sans l\'ajouter à l\'historique (erreur de saisie, doublon...) ? Pour une bouteille bue, utilisez plutôt "−1 bue" ou "Tout marquer comme bu".')) return;
-  await db.from('wines').delete().eq('id', editingId);
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  const { error } = await db.from('wines').delete().eq('id', editingId);
+  btn.disabled = false;
+  if (error) {
+    console.error('Erreur suppression vin:', error);
+    showToast(`Échec de la suppression : ${error.message || error.hint || 'réponse inattendue'}`);
+    return;
+  }
   closeModal('modalForm');
   showToast('Vin retiré de la cave');
   await loadWines();
