@@ -1439,6 +1439,24 @@
       <button class="btn-save" id="btnExportHistoriqueCsv" style="flex:none;width:100%">📄 Historique (CSV)</button>
       <button class="btn-save" id="btnExportJson" style="flex:none;width:100%">🗄 Sauvegarde complète (JSON)</button>
     </div>
+    <div class="form-actions" style="flex-direction:column;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+      <button class="btn-cancel" id="btnRestoreJson" style="flex:none;width:100%">📥 Restaurer une sauvegarde JSON</button>
+      <input type="file" id="fRestoreFile" accept="application/json" class="hidden" />
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL : RESTAURATION JSON ────────────────────── -->
+<div class="modal-overlay hidden" id="modalRestore">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-close-bar"><button class="modal-close-btn" data-close-modal="modalRestore" aria-label="Fermer">✕</button></div>
+    <div class="modal-title">Restaurer une sauvegarde 📥</div>
+    <div id="restoreSummary"></div>
+    <div class="form-actions" style="flex-direction:column;gap:8px;margin-top:18px">
+      <button class="btn-save" id="btnRestoreMerge" style="flex:none;width:100%">Fusionner avec la cave actuelle</button>
+      <button class="btn-delete-full" id="btnRestoreReplace" style="background:var(--urgent);color:#fff">Remplacer toute la cave et l'historique</button>
+      <button class="btn-cancel" id="btnRestoreCancel" style="flex:none;width:100%">Annuler</button>
+    </div>
   </div>
 </div>
 
@@ -3711,6 +3729,125 @@ document.getElementById('btnExportJson').addEventListener('click', () => {
   const data = { exporte_le: new Date().toISOString(), cave: wines, historique: archive };
   downloadFile(`cave-sauvegarde-${todayStamp()}.json`, JSON.stringify(data, null, 2), 'application/json;charset=utf-8');
   closeModal('modalExport');
+});
+
+// ── Restauration d'une sauvegarde JSON ──────────────────
+let restoreContext = null; // { cave, historique }
+
+document.getElementById('btnRestoreJson').addEventListener('click', () => {
+  document.getElementById('fRestoreFile').click();
+});
+
+document.getElementById('fRestoreFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = ''; // permet de re-sélectionner le même fichier ensuite
+  if (!file) return;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(await file.text());
+  } catch {
+    showToast('Fichier JSON invalide');
+    return;
+  }
+
+  const cave = Array.isArray(parsed.cave) ? parsed.cave : [];
+  const historique = Array.isArray(parsed.historique) ? parsed.historique : [];
+  if (!Array.isArray(parsed.cave) && !Array.isArray(parsed.historique)) {
+    showToast('Ce fichier ne ressemble pas à une sauvegarde de la cave');
+    return;
+  }
+
+  restoreContext = { cave, historique };
+  document.getElementById('restoreSummary').innerHTML = `
+    <p class="dup-intro">Ce fichier contient <b>${cave.length}</b> référence${cave.length > 1 ? 's' : ''} en cave
+    et <b>${historique.length}</b> dégustation${historique.length > 1 ? 's' : ''} dans l'historique.</p>
+    <p class="dup-intro"><b>Fusionner</b> ajoute ces données à votre cave actuelle (les références identiques —
+    même nom, domaine et millésime — voient leur quantité additionnée). <b>Remplacer</b> efface d'abord
+    définitivement votre cave et votre historique actuels.</p>
+  `;
+  closeModal('modalExport');
+  document.getElementById('modalRestore').classList.remove('hidden');
+});
+
+function stripRowForInsert(row) {
+  const { id, user_id, created_at, ...rest } = row;
+  return rest;
+}
+
+async function doRestore(mode) {
+  if (!restoreContext) return;
+  const { cave, historique } = restoreContext;
+  const mergeBtn = document.getElementById('btnRestoreMerge');
+  const replaceBtn = document.getElementById('btnRestoreReplace');
+  mergeBtn.disabled = true;
+  replaceBtn.disabled = true;
+  const activeBtn = mode === 'remplacer' ? replaceBtn : mergeBtn;
+  const originalLabel = activeBtn.textContent;
+  activeBtn.textContent = 'Restauration…';
+
+  try {
+    if (mode === 'remplacer') {
+      const { error: delWinesErr } = await db.from('wines').delete().not('id', 'is', null);
+      if (delWinesErr) throw delWinesErr;
+      const { error: delArchiveErr } = await db.from('wines_archive').delete().not('id', 'is', null);
+      if (delArchiveErr) throw delArchiveErr;
+
+      if (cave.length) {
+        const { error } = await db.from('wines').insert(cave.map(stripRowForInsert));
+        if (error) throw error;
+      }
+      if (historique.length) {
+        const { error } = await db.from('wines_archive').insert(historique.map(stripRowForInsert));
+        if (error) throw error;
+      }
+    } else {
+      for (const w of cave) {
+        const existing = wines.find(x => isSameWineReference(x, w));
+        if (existing) {
+          const newQty = (existing.quantite || 0) + (w.quantite || 0);
+          const { error } = await db.from('wines').update({ quantite: newQty }).eq('id', existing.id);
+          if (error) throw error;
+        } else {
+          const { error } = await db.from('wines').insert(stripRowForInsert(w));
+          if (error) throw error;
+        }
+      }
+      for (const a of historique) {
+        const doublon = archive.find(x => isSameWineReference(x, a)
+          && x.date_consommation === a.date_consommation
+          && (x.quantite_bue || 0) === (a.quantite_bue || 0));
+        if (!doublon) {
+          const { error } = await db.from('wines_archive').insert(stripRowForInsert(a));
+          if (error) throw error;
+        }
+      }
+    }
+
+    showToast('Sauvegarde restaurée ✓');
+    closeModal('modalRestore');
+    restoreContext = null;
+    await loadAppData();
+  } catch (err) {
+    console.error(err);
+    showToast(`Erreur lors de la restauration : ${err.message || err.hint || 'réponse inattendue'}`);
+  } finally {
+    mergeBtn.disabled = false;
+    replaceBtn.disabled = false;
+    activeBtn.textContent = originalLabel;
+  }
+}
+
+document.getElementById('btnRestoreMerge').addEventListener('click', () => doRestore('fusionner'));
+
+document.getElementById('btnRestoreReplace').addEventListener('click', () => {
+  if (!confirm('Remplacer supprimera définitivement toute la cave et l\'historique actuels avant de réimporter la sauvegarde. Cette action est irréversible. Continuer ?')) return;
+  doRestore('remplacer');
+});
+
+document.getElementById('btnRestoreCancel').addEventListener('click', () => {
+  restoreContext = null;
+  closeModal('modalRestore');
 });
 
 // ── Init ──────────────────────────────────────────────

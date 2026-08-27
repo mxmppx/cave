@@ -168,6 +168,15 @@ le retrouver via le filtre "🛒 À racheter" de l'onglet Historique.
 alter table public.wines_archive add column a_racheter boolean not null default false;
 ```
 
+## 10. Restauration d'une sauvegarde JSON
+
+Le bouton "Restaurer une sauvegarde JSON" (modale Export) relit un
+fichier exporté par "Sauvegarde complète (JSON)" et propose de
+fusionner (ajout aux données actuelles, doublons détectés par nom +
+domaine + millésime) ou de remplacer entièrement la cave et
+l'historique. Aucune nouvelle colonne requise — utilise les policies
+RLS déjà en place (étape 3 ou 5 selon votre configuration).
+
 ## Checklist de vérification
 
 - [ ] Navigation privée → écran de login apparaît, aucune donnée visible
