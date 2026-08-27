@@ -147,6 +147,17 @@ alter table public.wines add column emplacement text;
 Pas nécessaire sur `wines_archive` : l'emplacement physique n'a plus de
 sens une fois la bouteille bue.
 
+## 8. Colonnes "date_achat" et "caviste" (traçabilité de l'achat)
+
+```sql
+alter table public.wines add column date_achat date;
+alter table public.wines add column caviste text;
+```
+
+Pas nécessaire sur `wines_archive` pour l'instant : ces informations ne
+sont pas recopiées à l'archivage (seul le prix payé l'est déjà via
+`prix_achat`).
+
 ## Checklist de vérification
 
 - [ ] Navigation privée → écran de login apparaît, aucune donnée visible

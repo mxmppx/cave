@@ -1319,6 +1319,14 @@
       <input class="form-input" id="fPrix" type="number" placeholder="0.00" step="0.01" />
     </div>
     <div class="form-group">
+      <label class="form-label">Date d'achat</label>
+      <input class="form-input" id="fDateAchat" type="date" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Caviste / vendeur</label>
+      <input class="form-input" id="fCaviste" type="text" placeholder="Mövenpick Wein, Denner…" />
+    </div>
+    <div class="form-group">
       <label class="form-label">Emplacement</label>
       <input class="form-input" id="fEmplacement" type="text" placeholder="Casier B12, cave beau-frère…" />
     </div>
@@ -2651,6 +2659,11 @@ function openDetail(id) {
         <div class="detail-item-label">Emplacement</div>
         <div class="detail-item-value">📍 ${w.emplacement}</div>
       </div>` : ''}
+      ${(w.date_achat || w.caviste) ? `
+      <div class="detail-item" style="grid-column:1/-1">
+        <div class="detail-item-label">Achat</div>
+        <div class="detail-item-value">${[w.date_achat ? new Date(w.date_achat).toLocaleDateString('fr-CH') : '', w.caviste].filter(Boolean).join(' · ')}</div>
+      </div>` : ''}
     </div>
     ${w.notes ? `<div class="detail-notes">💬 ${w.notes}</div>` : ''}
     <div class="detail-actions">
@@ -3046,7 +3059,7 @@ function openForm(id = null) {
   document.getElementById('btnScanLabel').classList.add('hidden');
   document.getElementById('fPhoto').value = ''; // reset pour garantir le déclenchement de 'change' même en ressélectionnant le même fichier
 
-  const fields = { fNom:'', fDomaine:'', fMillesime:'', fRegion:'', fPays:'France', fCepage:'', fAccord:'', fQuantite:1, fBoireDepuis:'', fBoireAvant:'', fPrix:'', fEmplacement:'', fNotes:'' };
+  const fields = { fNom:'', fDomaine:'', fMillesime:'', fRegion:'', fPays:'France', fCepage:'', fAccord:'', fQuantite:1, fBoireDepuis:'', fBoireAvant:'', fPrix:'', fDateAchat:'', fCaviste:'', fEmplacement:'', fNotes:'' };
 
   if (id) {
     const w = wines.find(x => x.id === id);
@@ -3062,6 +3075,8 @@ function openForm(id = null) {
       fields.fBoireDepuis = w.boire_a_partir_de || '';
       fields.fBoireAvant  = w.boire_avant || '';
       fields.fPrix      = w.prix_achat || '';
+      fields.fDateAchat = w.date_achat || '';
+      fields.fCaviste   = w.caviste || '';
       fields.fEmplacement = w.emplacement || '';
       fields.fNotes     = w.notes || '';
       selectedCouleur   = w.couleur;
@@ -3234,6 +3249,8 @@ function buildWinePayload(nom) {
     boire_a_partir_de:  parseInt(document.getElementById('fBoireDepuis').value) || null,
     boire_avant:        parseInt(document.getElementById('fBoireAvant').value) || null,
     prix_achat:         parseFloat(document.getElementById('fPrix').value) || null,
+    date_achat:         document.getElementById('fDateAchat').value || null,
+    caviste:            document.getElementById('fCaviste').value.trim() || null,
     emplacement:        document.getElementById('fEmplacement').value.trim() || null,
     notes:              document.getElementById('fNotes').value.trim() || null,
   };
@@ -3631,6 +3648,8 @@ const CAVE_CSV_HEADERS = [
   { key: 'boire_a_partir_de', label: 'Boire à partir de' },
   { key: 'boire_avant', label: 'Boire avant' },
   { key: 'emplacement', label: 'Emplacement' },
+  { key: 'date_achat', label: "Date d'achat" },
+  { key: 'caviste', label: 'Caviste / vendeur' },
   { key: 'notes', label: 'Notes' },
 ];
 
