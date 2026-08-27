@@ -1530,7 +1530,7 @@
       <label class="form-label">Horizon "urgent" (années)</label>
       <input class="form-input" id="settingsUrgentHorizon" type="number" min="1" max="10" />
     </div>
-    <p class="scan-hint" style="margin-top:-10px">Un vin passe au statut "À boire !" quand il reste ce nombre d'années (ou moins) avant la fin de sa fenêtre de dégustation. Par défaut : 1 an.</p>
+    <p class="scan-hint" style="margin-top:-10px">Un vin passe au statut "À boire !" quand il reste ce nombre d'années (ou moins) avant la fin de sa fenêtre de dégustation. Entre 1 et 10 ans, par défaut 1 an. Ce réglage n'est enregistré que sur cet appareil/navigateur — à régler séparément ailleurs si besoin.</p>
     <div class="form-actions">
       <button class="btn-save" id="btnSettingsSave" style="flex:1">Enregistrer</button>
     </div>
@@ -1664,7 +1664,7 @@ async function loadWines() {
   const { data, error } = await db.from('wines').select('*').order('boire_avant', { ascending: true, nullsFirst: false });
   if (error) {
     console.error('Erreur chargement wines:', error);
-    document.getElementById('wineList').innerHTML = `<div class="empty"><div class="empty-icon">❌</div><h3>Erreur Supabase</h3><p>${error.message || error.hint || 'réponse inattendue'}</p></div>`;
+    document.getElementById('wineList').innerHTML = `<div class="empty"><div class="empty-icon">❌</div><h3>Erreur Supabase</h3><p>${escapeHtml(error.message || error.hint || 'réponse inattendue')}</p></div>`;
     return;
   }
   wines = data || [];
@@ -1682,9 +1682,12 @@ async function loadAppData() {
 const YEAR = new Date().getFullYear();
 const URGENT_HORIZON_KEY = 'cave_urgent_horizon_years';
 
+const URGENT_HORIZON_MIN = 1;
+const URGENT_HORIZON_MAX = 10;
+
 function getUrgentHorizon() {
-  const v = parseInt(localStorage.getItem(URGENT_HORIZON_KEY), 10);
-  return Number.isInteger(v) && v >= 1 ? v : 1;
+  const v = parseFloat(localStorage.getItem(URGENT_HORIZON_KEY));
+  return Number.isInteger(v) && v >= URGENT_HORIZON_MIN && v <= URGENT_HORIZON_MAX ? v : 1;
 }
 
 function getStatut(w) {
@@ -1719,15 +1722,42 @@ const COULEUR_CLASS = {
   rouge: 'fill-rouge', blanc: 'fill-blanc', 'rosé': 'fill-rose', 'pétillant': 'fill-petillant'
 };
 
+// N'autorise que des URL http(s) dans un attribut src — rejette javascript:
+// et autres schémas dangereux qu'une sauvegarde JSON restaurée pourrait contenir.
+function safeImageUrl(url) {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url, window.location.href);
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') ? parsed.href : '';
+  } catch {
+    return '';
+  }
+}
+
 function photoOrEmoji(w, size = 52) {
-  if (w.photo_url) {
-    return `<div class="wine-thumb" style="width:${size}px;height:${size}px"><img src="${w.photo_url}" alt="${w.nom}" /></div>`;
+  const src = safeImageUrl(w.photo_url);
+  if (src) {
+    return `<div class="wine-thumb" style="width:${size}px;height:${size}px"><img src="${escapeHtml(src)}" alt="${escapeHtml(w.nom)}" /></div>`;
   }
   return `<div class="wine-thumb" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.5)}px">${COULEUR_EMOJI[w.couleur] || '🍾'}</div>`;
 }
 
 // ── Render cave ───────────────────────────────────────
 let sortMode = 'nom';
+
+// Échappe une valeur avant de l'insérer dans du HTML (innerHTML) : les
+// noms, domaines, notes, régions, cépages, accords, emplacements, etc.
+// viennent tous de saisies utilisateur ou d'un fichier restauré, jamais
+// de constantes du code — ne jamais les interpoler sans échappement.
+function escapeHtml(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 // Identité d'une référence de vin, mutualisée pour la détection de doublon,
 // la restauration depuis l'historique et le compteur "déjà bu" : nom et
@@ -1741,9 +1771,14 @@ function normaliserTexte(s) {
 }
 
 function isSameWineReference(a, b) {
+  // Number(...) normalise le type (une sauvegarde JSON ou un import peut
+  // stocker le millésime en chaîne) : 2020 et "2020" doivent être la même
+  // référence.
+  const millesimeA = Number(a.millesime) || null;
+  const millesimeB = Number(b.millesime) || null;
   return normaliserTexte(a.nom) === normaliserTexte(b.nom)
     && normaliserTexte(a.domaine) === normaliserTexte(b.domaine)
-    && (a.millesime || null) === (b.millesime || null);
+    && millesimeA === millesimeB;
 }
 
 function getDejaBuCount(w) {
@@ -1821,7 +1856,7 @@ function updateCepageFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les cépages</option>` +
-    cepages.map(c => `<option value="${c}">${c}</option>`).join('');
+    cepages.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
 
   // Conserve la sélection si elle est toujours valide, sinon revient à "tous"
   if (cepages.includes(previousValue)) {
@@ -1837,7 +1872,7 @@ function updateRegionFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Toutes les régions</option>` +
-    regions.map(r => `<option value="${r}">${r}</option>`).join('');
+    regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
 
   // Conserve la sélection si elle est toujours valide, sinon revient à "tous"
   if (regions.includes(previousValue)) {
@@ -1853,7 +1888,7 @@ function updatePaysFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les pays</option>` +
-    paysList.map(p => `<option value="${p}">${p}</option>`).join('');
+    paysList.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
 
   if (paysList.includes(previousValue)) {
     select.value = previousValue;
@@ -1870,7 +1905,7 @@ function updateAccordFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les accords</option>` +
-    accords.map(a => `<option value="${a}">${a}</option>`).join('');
+    accords.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
 
   if (accords.includes(previousValue)) {
     select.value = previousValue;
@@ -1911,16 +1946,16 @@ function renderCave() {
 
   list.innerHTML = filtered.map(w => {
     const statut = getStatut(w);
-    const sub = [w.domaine, w.millesime, w.cepage, w.region].filter(Boolean).join(' · ');
+    const sub = [w.domaine, w.millesime, w.cepage, w.region].filter(Boolean).map(escapeHtml).join(' · ');
     const dejaBu = getDejaBuCount(w);
     return `
       <div class="wine-card" data-id="${w.id}">
         ${photoOrEmoji(w)}
         <div class="wine-info">
-          <div class="wine-name">${w.nom}</div>
+          <div class="wine-name">${escapeHtml(w.nom)}</div>
           <div class="wine-sub">${sub || '—'}</div>
-          ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${w.accord_mets}</div>` : ''}
-          ${w.emplacement ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">📍 ${w.emplacement}</div>` : ''}
+          ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${escapeHtml(w.accord_mets)}</div>` : ''}
+          ${w.emplacement ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">📍 ${escapeHtml(w.emplacement)}</div>` : ''}
           ${dejaBu > 0 ? `<div class="wine-sub" style="font-size:11px;color:var(--gold);margin-top:2px">↻ déjà bu ${dejaBu}×</div>` : ''}
         </div>
         <div class="wine-right">
@@ -1989,21 +2024,21 @@ function updateStatsFilterOptions() {
   const cepages = [...allCepages].sort((a,b) => a.localeCompare(b));
   const prevCepage = cepageSelect.value;
   cepageSelect.innerHTML = `<option value="tous">Tous les cépages</option>` +
-    cepages.map(c => `<option value="${c}">${c}</option>`).join('');
+    cepages.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
   if (cepages.includes(prevCepage)) { cepageSelect.value = prevCepage; } else { statsCepageFilter = 'tous'; }
 
   const regionSelect = document.getElementById('statsRegionFilterSelect');
   const regionsAvail = [...new Set(wines.map(w => w.region).filter(Boolean))].sort((a,b) => a.localeCompare(b));
   const prevRegion = regionSelect.value;
   regionSelect.innerHTML = `<option value="tous">Toutes les régions</option>` +
-    regionsAvail.map(r => `<option value="${r}">${r}</option>`).join('');
+    regionsAvail.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
   if (regionsAvail.includes(prevRegion)) { regionSelect.value = prevRegion; } else { statsRegionFilter = 'tous'; }
 
   const paysSelect = document.getElementById('statsPaysFilterSelect');
   const paysAvail = [...new Set(wines.map(w => w.pays).filter(Boolean))].sort((a,b) => a.localeCompare(b));
   const prevPays = paysSelect.value;
   paysSelect.innerHTML = `<option value="tous">Tous les pays</option>` +
-    paysAvail.map(p => `<option value="${p}">${p}</option>`).join('');
+    paysAvail.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
   if (paysAvail.includes(prevPays)) { paysSelect.value = prevPays; } else { statsPaysFilter = 'tous'; }
 
   const accordSelect = document.getElementById('statsAccordFilterSelect');
@@ -2012,7 +2047,7 @@ function updateStatsFilterOptions() {
   const accordsAvail = [...allAccords].sort((a,b) => a.localeCompare(b));
   const prevAccord = accordSelect.value;
   accordSelect.innerHTML = `<option value="tous">Tous les accords</option>` +
-    accordsAvail.map(a => `<option value="${a}">${a}</option>`).join('');
+    accordsAvail.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
   if (accordsAvail.includes(prevAccord)) { accordSelect.value = prevAccord; } else { statsAccordFilter = 'tous'; }
 }
 
@@ -2061,14 +2096,14 @@ function renderStats() {
 
   const colorBars = Object.entries(couleurCounts).map(([c, n]) => `
     <div class="color-bar-row">
-      <div class="color-bar-label">${COULEUR_EMOJI[c] || '🍾'} ${c}</div>
+      <div class="color-bar-label">${COULEUR_EMOJI[c] || '🍾'} ${escapeHtml(c)}</div>
       <div class="color-bar-track"><div class="color-bar-fill ${COULEUR_CLASS[c] || ''}" style="width:${Math.round(n/maxCouleur*100)}%"></div></div>
       <div class="color-bar-count">${n}</div>
     </div>`).join('');
 
   const regionRows = regions.map(([r, n]) => `
     <div class="region-row">
-      <span class="region-name">${r}</span>
+      <span class="region-name">${escapeHtml(r)}</span>
       <span class="region-count">${n} btl</span>
     </div>`).join('');
 
@@ -2082,7 +2117,7 @@ function renderStats() {
 
   const cepageRows = cepages.map(([c, n]) => `
     <div class="region-row">
-      <span class="region-name">${c}</span>
+      <span class="region-name">${escapeHtml(c)}</span>
       <span class="region-count">${n} btl</span>
     </div>`).join('');
 
@@ -2096,7 +2131,7 @@ function renderStats() {
 
   const accordRows = accords.map(([a, n]) => `
     <div class="region-row">
-      <span class="region-name">${a}</span>
+      <span class="region-name">${escapeHtml(a)}</span>
       <span class="region-count">${n} btl</span>
     </div>`).join('');
 
@@ -2206,7 +2241,7 @@ function updateABoireCepageFilterOptions(prêts) {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les cépages</option>` +
-    cepages.map(c => `<option value="${c}">${c}</option>`).join('');
+    cepages.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
 
   if (cepages.includes(previousValue)) {
     select.value = previousValue;
@@ -2221,7 +2256,7 @@ function updateABoireRegionFilterOptions(prêts) {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Toutes les régions</option>` +
-    regions.map(r => `<option value="${r}">${r}</option>`).join('');
+    regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
 
   if (regions.includes(previousValue)) {
     select.value = previousValue;
@@ -2236,7 +2271,7 @@ function updateABoirePaysFilterOptions(prêts) {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les pays</option>` +
-    paysList.map(p => `<option value="${p}">${p}</option>`).join('');
+    paysList.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
 
   if (paysList.includes(previousValue)) {
     select.value = previousValue;
@@ -2253,7 +2288,7 @@ function updateABoireAccordFilterOptions(prêts) {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les accords</option>` +
-    accords.map(a => `<option value="${a}">${a}</option>`).join('');
+    accords.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
 
   if (accords.includes(previousValue)) {
     select.value = previousValue;
@@ -2331,15 +2366,15 @@ function renderABoire() {
   }
   list.innerHTML = filtered.map(w => {
     const statut = getStatut(w);
-    const sub = [w.domaine, w.millesime, w.cepage, w.region].filter(Boolean).join(' · ');
+    const sub = [w.domaine, w.millesime, w.cepage, w.region].filter(Boolean).map(escapeHtml).join(' · ');
     const fin = w.boire_avant ? (statut === 'passe' ? `dépassé depuis ${w.boire_avant}` : `jusqu'en ${w.boire_avant}`) : '';
     return `
       <div class="wine-card" data-id="${w.id}">
         ${photoOrEmoji(w)}
         <div class="wine-info">
-          <div class="wine-name">${w.nom}</div>
+          <div class="wine-name">${escapeHtml(w.nom)}</div>
           <div class="wine-sub">${sub || '—'}</div>
-          ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${w.accord_mets}</div>` : ''}
+          ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${escapeHtml(w.accord_mets)}</div>` : ''}
           ${fin ? `<div class="wine-sub" style="color:var(--urgent);font-size:11px;margin-top:2px">${fin}</div>` : ''}
         </div>
         <div class="wine-right">
@@ -2458,7 +2493,7 @@ function updateHistoriqueCepageFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les cépages</option>` +
-    cepages.map(c => `<option value="${c}">${c}</option>`).join('');
+    cepages.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
 
   if (cepages.includes(previousValue)) {
     select.value = previousValue;
@@ -2473,7 +2508,7 @@ function updateHistoriqueRegionFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Toutes les régions</option>` +
-    regions.map(r => `<option value="${r}">${r}</option>`).join('');
+    regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
 
   if (regions.includes(previousValue)) {
     select.value = previousValue;
@@ -2488,7 +2523,7 @@ function updateHistoriquePaysFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les pays</option>` +
-    paysList.map(p => `<option value="${p}">${p}</option>`).join('');
+    paysList.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
 
   if (paysList.includes(previousValue)) {
     select.value = previousValue;
@@ -2505,7 +2540,7 @@ function updateHistoriqueAccordFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les accords</option>` +
-    accords.map(a => `<option value="${a}">${a}</option>`).join('');
+    accords.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
 
   if (accords.includes(previousValue)) {
     select.value = previousValue;
@@ -2574,7 +2609,7 @@ function updateJournalCepageFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les cépages</option>` +
-    cepages.map(c => `<option value="${c}">${c}</option>`).join('');
+    cepages.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
 
   if (cepages.includes(previousValue)) {
     select.value = previousValue;
@@ -2589,7 +2624,7 @@ function updateJournalRegionFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Toutes les régions</option>` +
-    regions.map(r => `<option value="${r}">${r}</option>`).join('');
+    regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
 
   if (regions.includes(previousValue)) {
     select.value = previousValue;
@@ -2604,7 +2639,7 @@ function updateJournalPaysFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les pays</option>` +
-    paysList.map(p => `<option value="${p}">${p}</option>`).join('');
+    paysList.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
 
   if (paysList.includes(previousValue)) {
     select.value = previousValue;
@@ -2621,7 +2656,7 @@ function updateJournalAccordFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les accords</option>` +
-    accords.map(a => `<option value="${a}">${a}</option>`).join('');
+    accords.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
 
   if (accords.includes(previousValue)) {
     select.value = previousValue;
@@ -2636,7 +2671,7 @@ async function loadArchive() {
   const { data, error } = await db.from('wines_archive').select('*').order('date_consommation', { ascending: false });
   if (error) {
     console.error('Erreur chargement wines_archive:', error);
-    list.innerHTML = `<div class="loading">❌ Erreur Supabase : ${error.message || error.hint || 'réponse inattendue'}</div>`;
+    list.innerHTML = `<div class="loading">❌ Erreur Supabase : ${escapeHtml(error.message || error.hint || 'réponse inattendue')}</div>`;
     return;
   }
   archive = data || [];
@@ -2699,20 +2734,20 @@ function renderHistoriqueStats() {
 
   const colorBars = Object.entries(couleurCounts).map(([c, n]) => `
     <div class="color-bar-row">
-      <div class="color-bar-label">${COULEUR_EMOJI[c] || '🍾'} ${c}</div>
+      <div class="color-bar-label">${COULEUR_EMOJI[c] || '🍾'} ${escapeHtml(c)}</div>
       <div class="color-bar-track"><div class="color-bar-fill ${COULEUR_CLASS[c] || ''}" style="width:${Math.round(n/maxCouleur*100)}%"></div></div>
       <div class="color-bar-count">${n}</div>
     </div>`).join('');
 
   const regionRows = regions.map(([r, n]) => `
     <div class="region-row">
-      <span class="region-name">${r}</span>
+      <span class="region-name">${escapeHtml(r)}</span>
       <span class="region-count">${n} btl</span>
     </div>`).join('');
 
   const cepageRows = cepages.map(([c, n]) => `
     <div class="region-row">
-      <span class="region-name">${c}</span>
+      <span class="region-name">${escapeHtml(c)}</span>
       <span class="region-count">${n} btl</span>
     </div>`).join('');
 
@@ -2726,7 +2761,7 @@ function renderHistoriqueStats() {
 
   const accordRows = accords.map(([a, n]) => `
     <div class="region-row">
-      <span class="region-name">${a}</span>
+      <span class="region-name">${escapeHtml(a)}</span>
       <span class="region-count">${n} btl</span>
     </div>`).join('');
 
@@ -2806,7 +2841,7 @@ function renderHistorique() {
   }
 
   list.innerHTML = filtered.map(w => {
-    const sub = [w.domaine, w.millesime, w.cepage, w.region].filter(Boolean).join(' · ');
+    const sub = [w.domaine, w.millesime, w.cepage, w.region].filter(Boolean).map(escapeHtml).join(' · ');
     const date = w.date_consommation
       ? new Date(w.date_consommation).toLocaleDateString('fr-CH', { day: 'numeric', month: 'short', year: 'numeric' })
       : '';
@@ -2814,12 +2849,12 @@ function renderHistorique() {
       <div class="wine-card archive-card" data-id="${w.id}">
         ${photoOrEmoji(w)}
         <div class="wine-info">
-          <div class="wine-name">${w.nom}</div>
+          <div class="wine-name">${escapeHtml(w.nom)}</div>
           <div class="wine-sub">${sub || '—'}</div>
-          ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${w.accord_mets}</div>` : ''}
+          ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${escapeHtml(w.accord_mets)}</div>` : ''}
           ${starsHtml(w.note_sur_5)}
           ${w.a_racheter ? `<div class="wine-sub" style="font-size:11px;color:var(--gold);margin-top:2px">🛒 À racheter</div>` : ''}
-          ${w.note_degustation ? `<div class="wine-sub" style="font-style:italic;margin-top:2px">💬 ${w.note_degustation}</div>` : ''}
+          ${w.note_degustation ? `<div class="wine-sub" style="font-style:italic;margin-top:2px">💬 ${escapeHtml(w.note_degustation)}</div>` : ''}
         </div>
         <div class="wine-right">
           <div class="wine-sub" style="font-weight:600">${date}</div>
@@ -2873,13 +2908,13 @@ function openDetail(id) {
 
   document.getElementById('detailContent').innerHTML = `
     <div class="detail-header">
-      ${w.photo_url
-        ? `<div class="detail-photo clickable" id="detailPhotoZoom"><img src="${w.photo_url}" /></div>`
+      ${safeImageUrl(w.photo_url)
+        ? `<div class="detail-photo clickable" id="detailPhotoZoom"><img src="${escapeHtml(safeImageUrl(w.photo_url))}" /></div>`
         : `<div class="detail-photo">${COULEUR_EMOJI[w.couleur] || '🍾'}</div>`
       }
       <div>
-        <div class="detail-title">${w.nom}</div>
-        <div class="detail-sub">${[w.domaine, w.region, w.pays].filter(Boolean).join(' · ')}</div>
+        <div class="detail-title">${escapeHtml(w.nom)}</div>
+        <div class="detail-sub">${[w.domaine, w.region, w.pays].filter(Boolean).map(escapeHtml).join(' · ')}</div>
         <div style="margin-top:8px">${statutBadge(statut)}</div>
       </div>
     </div>
@@ -2890,11 +2925,11 @@ function openDetail(id) {
       </div>
       <div class="detail-item">
         <div class="detail-item-label">Couleur</div>
-        <div class="detail-item-value" style="text-transform:capitalize">${COULEUR_EMOJI[w.couleur] || ''} ${w.couleur}</div>
+        <div class="detail-item-value" style="text-transform:capitalize">${COULEUR_EMOJI[w.couleur] || ''} ${escapeHtml(w.couleur)}</div>
       </div>
       <div class="detail-item">
         <div class="detail-item-label">Cépage</div>
-        <div class="detail-item-value">${w.cepage || '—'}</div>
+        <div class="detail-item-value">${escapeHtml(w.cepage) || '—'}</div>
       </div>
       <div class="detail-item">
         <div class="detail-item-label">Quantité</div>
@@ -2911,20 +2946,20 @@ function openDetail(id) {
       ${w.accord_mets ? `
       <div class="detail-item" style="grid-column:1/-1">
         <div class="detail-item-label">À boire avec</div>
-        <div class="detail-item-value">🍽️ ${w.accord_mets}</div>
+        <div class="detail-item-value">🍽️ ${escapeHtml(w.accord_mets)}</div>
       </div>` : ''}
       ${w.emplacement ? `
       <div class="detail-item" style="grid-column:1/-1">
         <div class="detail-item-label">Emplacement</div>
-        <div class="detail-item-value">📍 ${w.emplacement}</div>
+        <div class="detail-item-value">📍 ${escapeHtml(w.emplacement)}</div>
       </div>` : ''}
       ${(w.date_achat || w.caviste) ? `
       <div class="detail-item" style="grid-column:1/-1">
         <div class="detail-item-label">Achat</div>
-        <div class="detail-item-value">${[w.date_achat ? new Date(w.date_achat).toLocaleDateString('fr-CH') : '', w.caviste].filter(Boolean).join(' · ')}</div>
+        <div class="detail-item-value">${[w.date_achat ? new Date(w.date_achat).toLocaleDateString('fr-CH') : '', escapeHtml(w.caviste)].filter(Boolean).join(' · ')}</div>
       </div>` : ''}
     </div>
-    ${w.notes ? `<div class="detail-notes">💬 ${w.notes}</div>` : ''}
+    ${w.notes ? `<div class="detail-notes">💬 ${escapeHtml(w.notes)}</div>` : ''}
     <div class="detail-actions">
       <button class="btn-consume" id="btnConsume">−1 bue</button>
       <button class="btn-edit" id="btnDetailEdit">Modifier</button>
@@ -2972,13 +3007,13 @@ function openArchiveDetail(id) {
 
   document.getElementById('detailContent').innerHTML = `
     <div class="detail-header">
-      ${w.photo_url
-        ? `<div class="detail-photo clickable" id="detailPhotoZoom"><img src="${w.photo_url}" /></div>`
+      ${safeImageUrl(w.photo_url)
+        ? `<div class="detail-photo clickable" id="detailPhotoZoom"><img src="${escapeHtml(safeImageUrl(w.photo_url))}" /></div>`
         : `<div class="detail-photo">${COULEUR_EMOJI[w.couleur] || '🍾'}</div>`
       }
       <div>
-        <div class="detail-title">${w.nom}</div>
-        <div class="detail-sub">${[w.domaine, w.region, w.pays].filter(Boolean).join(' · ')}</div>
+        <div class="detail-title">${escapeHtml(w.nom)}</div>
+        <div class="detail-sub">${[w.domaine, w.region, w.pays].filter(Boolean).map(escapeHtml).join(' · ')}</div>
         ${starsHtml(w.note_sur_5) ? `<div style="margin-top:8px">${starsHtml(w.note_sur_5)}</div>` : ''}
       </div>
     </div>
@@ -2989,11 +3024,11 @@ function openArchiveDetail(id) {
       </div>
       <div class="detail-item">
         <div class="detail-item-label">Couleur</div>
-        <div class="detail-item-value" style="text-transform:capitalize">${COULEUR_EMOJI[w.couleur] || ''} ${w.couleur || '—'}</div>
+        <div class="detail-item-value" style="text-transform:capitalize">${COULEUR_EMOJI[w.couleur] || ''} ${escapeHtml(w.couleur) || '—'}</div>
       </div>
       <div class="detail-item">
         <div class="detail-item-label">Cépage</div>
-        <div class="detail-item-value">${w.cepage || '—'}</div>
+        <div class="detail-item-value">${escapeHtml(w.cepage) || '—'}</div>
       </div>
       <div class="detail-item">
         <div class="detail-item-label">Quantité bue</div>
@@ -3014,11 +3049,11 @@ function openArchiveDetail(id) {
       ${w.accord_mets ? `
       <div class="detail-item" style="grid-column:1/-1">
         <div class="detail-item-label">À boire avec</div>
-        <div class="detail-item-value">🍽️ ${w.accord_mets}</div>
+        <div class="detail-item-value">🍽️ ${escapeHtml(w.accord_mets)}</div>
       </div>` : ''}
     </div>
-    ${w.notes ? `<div class="detail-notes">📝 Notes d'origine : ${w.notes}</div>` : ''}
-    ${w.note_degustation ? `<div class="detail-notes">💬 ${w.note_degustation}</div>` : ''}
+    ${w.notes ? `<div class="detail-notes">📝 Notes d'origine : ${escapeHtml(w.notes)}</div>` : ''}
+    ${w.note_degustation ? `<div class="detail-notes">💬 ${escapeHtml(w.note_degustation)}</div>` : ''}
     <div class="detail-actions">
       <button class="btn-edit" id="btnToggleRacheter">${w.a_racheter ? '🛒 Retirer de "à racheter"' : '🛒 Marquer à racheter'}</button>
       <button class="btn-edit" id="btnEditArchiveNote">✏️ Modifier la note</button>
@@ -3031,9 +3066,17 @@ function openArchiveDetail(id) {
     document.getElementById('detailPhotoZoom').addEventListener('click', () => openImageViewer(w.photo_url));
   }
 
-  document.getElementById('btnToggleRacheter').addEventListener('click', async () => {
+  document.getElementById('btnToggleRacheter').addEventListener('click', async e => {
+    const btn = e.currentTarget;
     const newVal = !w.a_racheter;
-    await db.from('wines_archive').update({ a_racheter: newVal }).eq('id', w.id);
+    btn.disabled = true;
+    const { error } = await db.from('wines_archive').update({ a_racheter: newVal }).eq('id', w.id);
+    btn.disabled = false;
+    if (error) {
+      console.error('Erreur mise à jour à racheter:', error);
+      showToast(`Échec de la mise à jour : ${error.message || error.hint || 'réponse inattendue'}`);
+      return;
+    }
     w.a_racheter = newVal;
     showToast(newVal ? 'Ajouté à "à racheter" 🛒' : 'Retiré de "à racheter"');
     renderHistoriqueStats();
@@ -3045,18 +3088,21 @@ function openArchiveDetail(id) {
     openEditArchiveModal(w);
   });
 
-  document.getElementById('btnRestoreCave').addEventListener('click', async () => {
+  document.getElementById('btnRestoreCave').addEventListener('click', async e => {
     if (!confirm(`Remettre "${w.nom}" dans la cave (${w.quantite_bue} bouteille${w.quantite_bue > 1 ? 's' : ''}) ?`)) return;
+    const btn = e.currentTarget;
+    btn.disabled = true;
 
     // Cherche une fiche identique déjà en cave (même référence : nom + domaine + millésime)
     // pour fusionner plutôt que de créer une entrée séparée
     const existing = wines.find(x => isSameWineReference(x, w));
 
+    let writeErr;
     if (existing) {
       const newQty = (existing.quantite || 0) + (w.quantite_bue || 0);
-      await db.from('wines').update({ quantite: newQty }).eq('id', existing.id);
+      ({ error: writeErr } = await db.from('wines').update({ quantite: newQty }).eq('id', existing.id));
     } else {
-      await db.from('wines').insert({
+      ({ error: writeErr } = await db.from('wines').insert({
         nom: w.nom,
         domaine: w.domaine,
         millesime: w.millesime,
@@ -3074,10 +3120,28 @@ function openArchiveDetail(id) {
         emplacement: w.emplacement,
         date_achat: w.date_achat,
         caviste: w.caviste,
-      });
+      }));
     }
 
-    await db.from('wines_archive').delete().eq('id', w.id);
+    // Ne supprime l'entrée d'historique que si la bouteille a bien été
+    // recréée/fusionnée en cave — jamais avant, pour ne pas perdre la trace.
+    if (writeErr) {
+      console.error('Erreur remise en cave:', writeErr);
+      btn.disabled = false;
+      showToast(`Échec de la remise en cave : ${writeErr.message || writeErr.hint || 'réponse inattendue'}`);
+      return;
+    }
+
+    const { error: delErr } = await db.from('wines_archive').delete().eq('id', w.id);
+    btn.disabled = false;
+
+    if (delErr) {
+      console.error('Erreur suppression archive après remise en cave:', delErr);
+      showToast('Vin remis en cave, mais l\'entrée d\'historique n\'a pas pu être supprimée — vérifiez le journal.');
+      closeModal('modalDetail');
+      await loadAppData();
+      return;
+    }
 
     closeModal('modalDetail');
     showToast(existing ? 'Quantité fusionnée avec la fiche existante 🍷' : 'Vin remis en cave 🍷');
@@ -3103,7 +3167,17 @@ function openArchiveDetail(id) {
         renderCave();
       },
       async () => {
-        await db.from('wines_archive').delete().eq('id', w.id);
+        const { error } = await db.from('wines_archive').delete().eq('id', w.id);
+        if (error) {
+          // La suppression a échoué côté serveur alors que l'UI l'affichait
+          // déjà comme supprimée : on la remet pour rester cohérent.
+          console.error('Erreur suppression archive:', error);
+          showToast('La suppression a échoué côté serveur — le vin réapparaît dans l\'historique.');
+          archive.push(w);
+          renderHistorique();
+          renderHistoriqueStats();
+          renderCave();
+        }
       }
     );
   });
@@ -3148,7 +3222,7 @@ async function confirmArchive() {
   btn.textContent = 'Archivage…';
   btn.disabled = true;
 
-  await db.from('wines_archive').insert({
+  const { error: insertErr } = await db.from('wines_archive').insert({
     nom: w.nom,
     domaine: w.domaine,
     millesime: w.millesime,
@@ -3172,14 +3246,31 @@ async function confirmArchive() {
     created_at: w.created_at,
   });
 
-  if (quantiteRestante > 0) {
-    await db.from('wines').update({ quantite: quantiteRestante }).eq('id', w.id);
-  } else {
-    await db.from('wines').delete().eq('id', w.id);
+  // Ne jamais toucher au stock actif si l'archivage a échoué : la
+  // bouteille ne doit ni disparaître ni se dupliquer silencieusement.
+  if (insertErr) {
+    console.error('Erreur archivage:', insertErr);
+    btn.textContent = 'Archiver';
+    btn.disabled = false;
+    showToast(`Échec de l'archivage : ${insertErr.message || insertErr.hint || 'réponse inattendue'}`);
+    return;
   }
+
+  const stockUpdate = quantiteRestante > 0
+    ? await db.from('wines').update({ quantite: quantiteRestante }).eq('id', w.id)
+    : await db.from('wines').delete().eq('id', w.id);
 
   btn.textContent = 'Archiver';
   btn.disabled = false;
+
+  if (stockUpdate.error) {
+    console.error('Erreur mise à jour du stock après archivage:', stockUpdate.error);
+    showToast('Dégustation enregistrée, mais la mise à jour du stock a échoué — vérifiez la quantité de ce vin.');
+    closeModal('modalArchive');
+    archiveTarget = null;
+    await loadAppData();
+    return;
+  }
 
   closeModal('modalArchive');
   showToast('Vin archivé 📖');
@@ -3305,10 +3396,16 @@ async function confirmEditArchive() {
     }
   }
 
-  await db.from('wines_archive').update(payload).eq('id', editArchiveTarget.id);
+  const { error } = await db.from('wines_archive').update(payload).eq('id', editArchiveTarget.id);
 
   btn.textContent = 'Enregistrer';
   btn.disabled = false;
+
+  if (error) {
+    console.error('Erreur modification dégustation:', error);
+    showToast(`Échec de l'enregistrement : ${error.message || error.hint || 'réponse inattendue'}`);
+    return;
+  }
 
   closeModal('modalEditArchive');
   closeModal('modalDetail');
@@ -3497,6 +3594,13 @@ function applyOcrGuesses(rawText) {
   }
 }
 
+// Une chaîne vide est valide (la quantité défaut alors à 1) ; une valeur
+// saisie doit être un entier d'au moins 1.
+function isValidQuantiteInput(raw) {
+  if (raw === '') return true;
+  return Number.isInteger(parseFloat(raw)) && parseInt(raw, 10) >= 1;
+}
+
 // Save
 document.getElementById('btnFormSave').addEventListener('click', async () => {
   const nom = document.getElementById('fNom').value.trim();
@@ -3504,7 +3608,7 @@ document.getElementById('btnFormSave').addEventListener('click', async () => {
   if (!selectedCouleur) { showToast('Sélectionnez une couleur'); return; }
 
   const qtyRaw = document.getElementById('fQuantite').value;
-  if (qtyRaw !== '' && (!Number.isInteger(parseFloat(qtyRaw)) || parseInt(qtyRaw, 10) < 1)) {
+  if (!isValidQuantiteInput(qtyRaw)) {
     showToast('La quantité doit être un nombre entier d\'au moins 1');
     return;
   }
@@ -3574,8 +3678,9 @@ async function doSaveWine(payload) {
   btn.disabled = false;
 
   if (err) { console.error(err); showToast('Erreur lors de l\'enregistrement'); return; }
+  const wasEditing = !!editingId;
   closeModal('modalForm');
-  showToast(editingId ? 'Vin modifié ✓' : 'Vin ajouté 🍾');
+  showToast(wasEditing ? 'Vin modifié ✓' : 'Vin ajouté 🍾');
   await loadWines();
 }
 
@@ -3589,19 +3694,19 @@ function openDuplicateModal(existing, newPayload) {
     <div class="dup-col">
       <div class="detail-item-label">${w === existing ? 'DÉJÀ EN CAVE' : 'NOUVELLE SAISIE'}</div>
       <div class="dup-row"><span>Millésime</span><b>${w.millesime || '—'}</b></div>
-      <div class="dup-row"><span>Région</span><b>${w.region || '—'}</b></div>
-      <div class="dup-row"><span>Cépage</span><b>${w.cepage || '—'}</b></div>
-      <div class="dup-row"><span>À boire avec</span><b>${w.accord_mets || '—'}</b></div>
-      <div class="dup-row"><span>Couleur</span><b>${w.couleur || '—'}</b></div>
+      <div class="dup-row"><span>Région</span><b>${escapeHtml(w.region) || '—'}</b></div>
+      <div class="dup-row"><span>Cépage</span><b>${escapeHtml(w.cepage) || '—'}</b></div>
+      <div class="dup-row"><span>À boire avec</span><b>${escapeHtml(w.accord_mets) || '—'}</b></div>
+      <div class="dup-row"><span>Couleur</span><b>${escapeHtml(w.couleur) || '—'}</b></div>
       <div class="dup-row"><span>Quantité</span><b>${w.quantite}</b></div>
       <div class="dup-row"><span>Prix</span><b>${w.prix_achat ? w.prix_achat + ' CHF' : '—'}</b></div>
-      <div class="dup-row"><span>Emplacement</span><b>${w.emplacement || '—'}</b></div>
+      <div class="dup-row"><span>Emplacement</span><b>${escapeHtml(w.emplacement) || '—'}</b></div>
       <div class="dup-row"><span>Date d'achat</span><b>${w.date_achat ? new Date(w.date_achat).toLocaleDateString('fr-CH') : '—'}</b></div>
-      <div class="dup-row"><span>Caviste</span><b>${w.caviste || '—'}</b></div>
+      <div class="dup-row"><span>Caviste</span><b>${escapeHtml(w.caviste) || '—'}</b></div>
     </div>`;
 
   document.getElementById('duplicateContent').innerHTML = `
-    <p class="dup-intro">Un vin "<b>${existing.nom}</b>" est déjà dans votre cave. Est-ce le même ?</p>
+    <p class="dup-intro">Un vin "<b>${escapeHtml(existing.nom)}</b>" est déjà dans votre cave. Est-ce le même ?</p>
     <div class="dup-compare">
       ${fmt(existing)}
       ${fmt(newPayload)}
@@ -3614,11 +3719,11 @@ function openDuplicateModal(existing, newPayload) {
 // Champs qu'on complète sur la fiche existante avec la nouvelle saisie,
 // uniquement s'ils sont vides — jamais d'écrasement d'une valeur déjà saisie
 const DUP_MERGE_FILLABLE_FIELDS = [
-  'region', 'cepage', 'accord_mets', 'prix_achat', 'boire_a_partir_de',
+  'region', 'pays', 'cepage', 'accord_mets', 'prix_achat', 'boire_a_partir_de',
   'boire_avant', 'emplacement', 'date_achat', 'caviste', 'notes',
 ];
 
-document.getElementById('btnDupMerge').addEventListener('click', async () => {
+document.getElementById('btnDupMerge').addEventListener('click', async e => {
   if (!duplicateContext) return;
   const { existing, newPayload } = duplicateContext;
   const newQty = (existing.quantite || 0) + (newPayload.quantite || 0);
@@ -3630,10 +3735,36 @@ document.getElementById('btnDupMerge').addEventListener('click', async () => {
     }
   });
 
+  const btn = e.currentTarget;
+  btn.disabled = true;
+
+  // La photo de la nouvelle saisie n'est uploadée qu'ici : elle n'a pas
+  // encore été envoyée à ce stade (doSaveWine(), qui gère l'upload
+  // habituellement, n'est jamais appelé sur le chemin fusion).
+  if (!existing.photo_url && uploadedPhotoFile) {
+    const ext = uploadedPhotoFile.name.split('.').pop();
+    const path = `${Date.now()}.${ext}`;
+    const { error: upErr } = await db.storage.from('wine-labels').upload(path, uploadedPhotoFile, { upsert: true });
+    if (upErr) {
+      console.error('Erreur upload photo (fusion doublon):', upErr);
+      showToast('La fusion continue, mais l\'upload de la nouvelle photo a échoué');
+    } else {
+      const { data: urlData } = db.storage.from('wine-labels').getPublicUrl(path);
+      update.photo_url = urlData.publicUrl;
+    }
+  }
+
+  const { error } = await db.from('wines').update(update).eq('id', existing.id);
+  btn.disabled = false;
+
+  if (error) {
+    console.error('Erreur fusion doublon:', error);
+    showToast(`Échec de la fusion : ${error.message || error.hint || 'réponse inattendue'}`);
+    return;
+  }
+
   closeModal('modalDuplicate');
   closeModal('modalForm');
-
-  await db.from('wines').update(update).eq('id', existing.id);
   showToast(`Quantité mise à jour : ${newQty} bouteilles`);
   duplicateContext = null;
   await loadWines();
@@ -3653,10 +3784,18 @@ document.getElementById('btnDupCancel').addEventListener('click', () => {
 });
 
 // Delete
-document.getElementById('btnDelete').addEventListener('click', async () => {
+document.getElementById('btnDelete').addEventListener('click', async e => {
   if (!editingId) return;
   if (!confirm('Retirer cette fiche de la cave sans l\'ajouter à l\'historique (erreur de saisie, doublon...) ? Pour une bouteille bue, utilisez plutôt "−1 bue" ou "Tout marquer comme bu".')) return;
-  await db.from('wines').delete().eq('id', editingId);
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  const { error } = await db.from('wines').delete().eq('id', editingId);
+  btn.disabled = false;
+  if (error) {
+    console.error('Erreur suppression vin:', error);
+    showToast(`Échec de la suppression : ${error.message || error.hint || 'réponse inattendue'}`);
+    return;
+  }
   closeModal('modalForm');
   showToast('Vin retiré de la cave');
   await loadWines();
@@ -3969,6 +4108,9 @@ const HISTORIQUE_CSV_HEADERS = [
   { key: 'cepage', label: 'Cépage' },
   { key: 'quantite_bue', label: 'Quantité bue' },
   { key: 'prix_achat', label: 'Prix unitaire (CHF)' },
+  { key: 'emplacement', label: 'Emplacement' },
+  { key: 'date_achat', label: "Date d'achat" },
+  { key: 'caviste', label: 'Caviste' },
   { key: 'date_consommation', label: 'Bu le' },
   { key: 'note_sur_5', label: 'Note (/5)' },
   { key: 'note_degustation', label: 'Commentaire de dégustation' },
@@ -3989,13 +4131,18 @@ document.getElementById('btnSettings').addEventListener('click', () => {
   document.getElementById('modalSettings').classList.remove('hidden');
 });
 
+function isValidUrgentHorizonInput(raw) {
+  const value = parseFloat(raw);
+  return Number.isInteger(value) && value >= URGENT_HORIZON_MIN && value <= URGENT_HORIZON_MAX;
+}
+
 document.getElementById('btnSettingsSave').addEventListener('click', () => {
   const raw = document.getElementById('settingsUrgentHorizon').value;
-  const value = parseInt(raw, 10);
-  if (!Number.isInteger(value) || value < 1) {
-    showToast('L\'horizon doit être un nombre entier d\'au moins 1');
+  if (!isValidUrgentHorizonInput(raw)) {
+    showToast(`L'horizon doit être un nombre entier entre ${URGENT_HORIZON_MIN} et ${URGENT_HORIZON_MAX}`);
     return;
   }
+  const value = parseFloat(raw);
   localStorage.setItem(URGENT_HORIZON_KEY, String(value));
   closeModal('modalSettings');
   showToast('Réglages enregistrés ✓');
@@ -4074,13 +4221,17 @@ async function doRestore(mode) {
   const activeBtn = mode === 'remplacer' ? replaceBtn : mergeBtn;
   const originalLabel = activeBtn.textContent;
   activeBtn.textContent = 'Restauration…';
+  let restorePhase = null;
 
   try {
     if (mode === 'remplacer') {
-      const { error: delWinesErr } = await db.from('wines').delete().not('id', 'is', null);
-      if (delWinesErr) throw delWinesErr;
-      const { error: delArchiveErr } = await db.from('wines_archive').delete().not('id', 'is', null);
-      if (delArchiveErr) throw delArchiveErr;
+      // Insère d'abord les nouvelles données, ne supprime les anciennes
+      // qu'une fois les insertions confirmées : si une insertion échoue,
+      // les données existantes restent intactes (au pire une insertion
+      // partielle à nettoyer, jamais une perte totale).
+      const oldWineIds = wines.map(w => w.id);
+      const oldArchiveIds = archive.map(a => a.id);
+      restorePhase = 'insertion';
 
       if (cave.length) {
         const { error } = await db.from('wines').insert(cave.map(stripRowForInsert));
@@ -4088,6 +4239,16 @@ async function doRestore(mode) {
       }
       if (historique.length) {
         const { error } = await db.from('wines_archive').insert(historique.map(stripRowForInsert));
+        if (error) throw error;
+      }
+
+      restorePhase = 'nettoyage';
+      if (oldWineIds.length) {
+        const { error } = await db.from('wines').delete().in('id', oldWineIds);
+        if (error) throw error;
+      }
+      if (oldArchiveIds.length) {
+        const { error } = await db.from('wines_archive').delete().in('id', oldArchiveIds);
         if (error) throw error;
       }
     } else {
@@ -4119,7 +4280,12 @@ async function doRestore(mode) {
     await loadAppData();
   } catch (err) {
     console.error(err);
-    showToast(`Erreur lors de la restauration : ${err.message || err.hint || 'réponse inattendue'}`);
+    const detail = err.message || err.hint || 'réponse inattendue';
+    if (restorePhase === 'nettoyage') {
+      showToast(`Nouvelles données importées, mais le nettoyage des anciennes a échoué (${detail}) — cave et historique peuvent contenir des doublons à vérifier.`);
+    } else {
+      showToast(`Échec de la restauration (${detail}) — vos données existantes n'ont pas été modifiées.`);
+    }
   } finally {
     mergeBtn.disabled = false;
     replaceBtn.disabled = false;

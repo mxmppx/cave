@@ -140,23 +140,29 @@ Champ libre affiché dans le formulaire et la fiche détaillée. Sans elle,
 l'ajout/modification d'un vin renverra une erreur `column "emplacement"
 does not exist`.
 
+**Nécessaire sur les deux tables** : l'emplacement est recopié vers
+`wines_archive` au moment de l'archivage (pour rester visible sur une
+bouteille déjà bue et être restitué si elle est remise en cave). Sans
+la colonne sur `wines_archive`, l'archivage d'un vin renverra une
+erreur `column "emplacement" does not exist` et **la bouteille sera
+décrémentée de la cave sans être enregistrée dans l'historique**.
+
 ```sql
 alter table public.wines add column emplacement text;
+alter table public.wines_archive add column emplacement text;
 ```
 
-Pas nécessaire sur `wines_archive` : l'emplacement physique n'a plus de
-sens une fois la bouteille bue.
-
 ## 8. Colonnes "date_achat" et "caviste" (traçabilité de l'achat)
+
+**Nécessaire sur les deux tables**, pour la même raison qu'au point 7 :
+ces informations sont recopiées vers `wines_archive` à l'archivage.
 
 ```sql
 alter table public.wines add column date_achat date;
 alter table public.wines add column caviste text;
+alter table public.wines_archive add column date_achat date;
+alter table public.wines_archive add column caviste text;
 ```
-
-Pas nécessaire sur `wines_archive` pour l'instant : ces informations ne
-sont pas recopiées à l'archivage (seul le prix payé l'est déjà via
-`prix_achat`).
 
 ## 9. Colonne "a_racheter" (liste à racheter)
 
@@ -176,6 +182,67 @@ fusionner (ajout aux données actuelles, doublons détectés par nom +
 domaine + millésime) ou de remplacer entièrement la cave et
 l'historique. Aucune nouvelle colonne requise — utilise les policies
 RLS déjà en place (étape 3 ou 5 selon votre configuration).
+
+## 11. ⚠️ Correctif urgent : colonnes manquantes sur `wines_archive`
+
+Si vous aviez déjà exécuté les sections 7 et 8 dans leur ancienne
+version (colonnes uniquement sur `wines`), exécutez ce correctif
+maintenant. Depuis le commit `d84c67d`, l'archivage d'un vin
+(`−1 bue` / `Tout marquer comme bu`) recopie `emplacement`,
+`date_achat` et `caviste` vers `wines_archive`. Sans ces colonnes,
+**l'insertion dans l'historique échoue et la bouteille peut être
+décrémentée ou supprimée de la cave sans laisser de trace.**
+
+Idempotent — sans danger à exécuter même si les colonnes existent déjà :
+
+```sql
+alter table public.wines_archive add column if not exists emplacement text;
+alter table public.wines_archive add column if not exists date_achat date;
+alter table public.wines_archive add column if not exists caviste text;
+```
+
+## 12. 🔍 Fonction de diagnostic (pour que Claude Code puisse vérifier le schéma)
+
+Cette session n'a pas d'accès direct à la base Supabase du projet — impossible
+de lister les colonnes existantes ou de savoir quelles migrations ci-dessus
+restent à exécuter. Cette fonction expose en lecture seule la liste des
+colonnes de `wines` et `wines_archive` (noms et types uniquement, aucune
+donnée), appelable via l'API REST publique avec la clé `anon` déjà présente
+dans `index.html` — elle ne donne accès à rien de plus que ce que révèle déjà
+le code source public du dépôt.
+
+```sql
+create or replace function public.debug_schema_check()
+returns table(table_name text, column_name text, data_type text, is_nullable text)
+language sql
+security definer
+set search_path = public
+as $$
+  select c.table_name, c.column_name, c.data_type, c.is_nullable
+  from information_schema.columns c
+  where c.table_schema = 'public'
+    and c.table_name in ('wines', 'wines_archive')
+  order by c.table_name, c.ordinal_position;
+$$;
+
+grant execute on function public.debug_schema_check() to anon, authenticated;
+```
+
+Une fois exécutée, n'importe qui (moi y compris, via `curl`) peut vérifier
+l'état réel du schéma avec :
+
+```sh
+curl -s 'https://rtxwaupsjwfmczyopuhk.supabase.co/rest/v1/rpc/debug_schema_check' \
+  -H 'apikey: sb_publishable_3sIlqi_GerHO1T2A9hHv4A_oFsC48lP' \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+```
+
+Pour révoquer l'accès une fois le diagnostic terminé (optionnel) :
+
+```sql
+drop function public.debug_schema_check();
+```
 
 ## Checklist de vérification
 
