@@ -3637,7 +3637,7 @@ document.getElementById('btnDelete').addEventListener('click', async () => {
 document.getElementById('btnFormCancel').addEventListener('click', () => closeModal('modalForm'));
 
 // Close on overlay click
-['modalForm','modalDetail','modalArchive','modalDuplicate'].forEach(id => {
+['modalForm','modalDetail','modalArchive','modalDuplicate','modalEditArchive','modalExport','modalRestore','modalAiImport'].forEach(id => {
   document.getElementById(id).addEventListener('click', e => {
     if (e.target === e.currentTarget) closeModal(id);
   });
@@ -3651,6 +3651,8 @@ function closeModal(id) {
   }
   if (id === 'modalArchive') archiveTarget = null;
   if (id === 'modalDuplicate') duplicateContext = null;
+  if (id === 'modalEditArchive') editArchiveTarget = null;
+  if (id === 'modalRestore') restoreContext = null;
 }
 
 // ── Verrouillage du scroll de la page derrière toute modale ouverte ──
@@ -3824,10 +3826,6 @@ document.getElementById('btnAiImportParse').addEventListener('click', () => {
     : 'Champs pré-remplis — vérifie et complète avant d’enregistrer ✓');
 });
 
-// Fermeture par clic sur l'overlay
-document.getElementById('modalAiImport').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeModal('modalAiImport');
-});
 
 // ── Visionneuse photo plein écran ──────────────────────
 function openImageViewer(url) {
