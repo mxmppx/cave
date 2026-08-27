@@ -1686,7 +1686,7 @@ const URGENT_HORIZON_MIN = 1;
 const URGENT_HORIZON_MAX = 10;
 
 function getUrgentHorizon() {
-  const v = parseInt(localStorage.getItem(URGENT_HORIZON_KEY), 10);
+  const v = parseFloat(localStorage.getItem(URGENT_HORIZON_KEY));
   return Number.isInteger(v) && v >= URGENT_HORIZON_MIN && v <= URGENT_HORIZON_MAX ? v : 1;
 }
 
@@ -1771,9 +1771,14 @@ function normaliserTexte(s) {
 }
 
 function isSameWineReference(a, b) {
+  // Number(...) normalise le type (une sauvegarde JSON ou un import peut
+  // stocker le millésime en chaîne) : 2020 et "2020" doivent être la même
+  // référence.
+  const millesimeA = Number(a.millesime) || null;
+  const millesimeB = Number(b.millesime) || null;
   return normaliserTexte(a.nom) === normaliserTexte(b.nom)
     && normaliserTexte(a.domaine) === normaliserTexte(b.domaine)
-    && (a.millesime || null) === (b.millesime || null);
+    && millesimeA === millesimeB;
 }
 
 function getDejaBuCount(w) {
@@ -3589,6 +3594,13 @@ function applyOcrGuesses(rawText) {
   }
 }
 
+// Une chaîne vide est valide (la quantité défaut alors à 1) ; une valeur
+// saisie doit être un entier d'au moins 1.
+function isValidQuantiteInput(raw) {
+  if (raw === '') return true;
+  return Number.isInteger(parseFloat(raw)) && parseInt(raw, 10) >= 1;
+}
+
 // Save
 document.getElementById('btnFormSave').addEventListener('click', async () => {
   const nom = document.getElementById('fNom').value.trim();
@@ -3596,7 +3608,7 @@ document.getElementById('btnFormSave').addEventListener('click', async () => {
   if (!selectedCouleur) { showToast('Sélectionnez une couleur'); return; }
 
   const qtyRaw = document.getElementById('fQuantite').value;
-  if (qtyRaw !== '' && (!Number.isInteger(parseFloat(qtyRaw)) || parseInt(qtyRaw, 10) < 1)) {
+  if (!isValidQuantiteInput(qtyRaw)) {
     showToast('La quantité doit être un nombre entier d\'au moins 1');
     return;
   }
@@ -4118,13 +4130,18 @@ document.getElementById('btnSettings').addEventListener('click', () => {
   document.getElementById('modalSettings').classList.remove('hidden');
 });
 
+function isValidUrgentHorizonInput(raw) {
+  const value = parseFloat(raw);
+  return Number.isInteger(value) && value >= URGENT_HORIZON_MIN && value <= URGENT_HORIZON_MAX;
+}
+
 document.getElementById('btnSettingsSave').addEventListener('click', () => {
   const raw = document.getElementById('settingsUrgentHorizon').value;
-  const value = parseFloat(raw);
-  if (!Number.isInteger(value) || value < URGENT_HORIZON_MIN || value > URGENT_HORIZON_MAX) {
+  if (!isValidUrgentHorizonInput(raw)) {
     showToast(`L'horizon doit être un nombre entier entre ${URGENT_HORIZON_MIN} et ${URGENT_HORIZON_MAX}`);
     return;
   }
+  const value = parseFloat(raw);
   localStorage.setItem(URGENT_HORIZON_KEY, String(value));
   closeModal('modalSettings');
   showToast('Réglages enregistrés ✓');
