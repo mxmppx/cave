@@ -137,32 +137,41 @@ test('splitCepages découpe sur virgule, slash, "et" et "&"', () => {
 // recalcule la même valeur ici plutôt que de lire app.YEAR.
 const CURRENT_YEAR = new Date().getFullYear();
 
-test('getStatut : passé, à attendre, urgent, prêt', () => {
-  assert.equal(app.getStatut({ boire_avant: CURRENT_YEAR - 1 }), 'passe');
-  assert.equal(app.getStatut({ boire_a_partir_de: CURRENT_YEAR + 3 }), 'attendre');
-  assert.equal(app.getStatut({ boire_avant: CURRENT_YEAR + 1 }), 'urgent', 'horizon par défaut = 1 an');
-  assert.equal(app.getStatut({ boire_avant: CURRENT_YEAR + 5 }), 'pret');
-  assert.equal(app.getStatut({}), null, 'aucune fenêtre renseignée');
+test('monthsRemaining calcule les mois restants jusqu\'au 31 décembre de l\'année cible', () => {
+  // Valeur non figée (dépend du mois d'exécution du test), mais toujours
+  // dans [0, 11], et cohérente d'une année sur l'autre à ±12 mois près.
+  const remainingThisYear = app.monthsRemaining(CURRENT_YEAR);
+  assert.ok(remainingThisYear >= 0 && remainingThisYear <= 11,
+    `monthsRemaining(année en cours) doit être entre 0 et 11, reçu ${remainingThisYear}`);
+  assert.equal(app.monthsRemaining(CURRENT_YEAR + 1), remainingThisYear + 12);
+  assert.equal(app.monthsRemaining(CURRENT_YEAR - 1), remainingThisYear - 12);
 });
 
-test('getStatut respecte l\'horizon urgent configuré (localStorage)', () => {
-  const key = 'cave_urgent_horizon_years';
+test('getStatut : passé, à attendre, urgent, prêt (horizon = 12 mois, le maximum)', () => {
+  const key = 'cave_urgent_horizon_months';
   try {
-    app.localStorage.setItem(key, '3');
-    assert.equal(app.getStatut({ boire_avant: CURRENT_YEAR + 3 }), 'urgent');
-    assert.equal(app.getStatut({ boire_avant: CURRENT_YEAR + 4 }), 'pret');
+    // Avec l'horizon maximal (12 mois), toute échéance dans l'année en
+    // cours est forcément "urgent" (au plus 11 mois restants) et toute
+    // échéance à 2 ans ou plus est forcément "prêt" (24 mois ou plus) —
+    // vrai quel que soit le mois réel d'exécution du test.
+    app.localStorage.setItem(key, '12');
+    assert.equal(app.getStatut({ boire_avant: CURRENT_YEAR - 1 }), 'passe');
+    assert.equal(app.getStatut({ boire_a_partir_de: CURRENT_YEAR + 3 }), 'attendre');
+    assert.equal(app.getStatut({ boire_avant: CURRENT_YEAR }), 'urgent');
+    assert.equal(app.getStatut({ boire_avant: CURRENT_YEAR + 2 }), 'pret');
+    assert.equal(app.getStatut({}), null, 'aucune fenêtre renseignée');
   } finally {
     app.localStorage.removeItem(key);
   }
 });
 
-test('getUrgentHorizon retombe sur 1 si la valeur stockée est hors bornes ou invalide', () => {
-  const key = 'cave_urgent_horizon_years';
+test('getUrgentHorizon retombe sur la valeur par défaut (3 mois) si la valeur stockée est hors bornes ou invalide', () => {
+  const key = 'cave_urgent_horizon_months';
   try {
     app.localStorage.setItem(key, '99');
-    assert.equal(app.getUrgentHorizon(), 1);
+    assert.equal(app.getUrgentHorizon(), 3);
     app.localStorage.setItem(key, '2.5');
-    assert.equal(app.getUrgentHorizon(), 1);
+    assert.equal(app.getUrgentHorizon(), 3);
     app.localStorage.setItem(key, '4');
     assert.equal(app.getUrgentHorizon(), 4);
   } finally {
@@ -183,10 +192,10 @@ test('isValidQuantiteInput : vide accepté, entier >= 1 accepté, le reste refus
   assert.equal(app.isValidQuantiteInput('abc'), false);
 });
 
-test('isValidUrgentHorizonInput : entier entre 1 et 10 uniquement', () => {
+test('isValidUrgentHorizonInput : entier entre 1 et 12 uniquement', () => {
   assert.equal(app.isValidUrgentHorizonInput('1'), true);
-  assert.equal(app.isValidUrgentHorizonInput('10'), true);
-  assert.equal(app.isValidUrgentHorizonInput('11'), false);
+  assert.equal(app.isValidUrgentHorizonInput('12'), true);
+  assert.equal(app.isValidUrgentHorizonInput('13'), false);
   assert.equal(app.isValidUrgentHorizonInput('0'), false);
   assert.equal(app.isValidUrgentHorizonInput('2.5'), false);
   assert.equal(app.isValidUrgentHorizonInput(''), false);
@@ -223,19 +232,28 @@ test('parseAiImportText ignore les lignes qui ne matchent pas le format', () => 
 });
 
 test('pickWeightedWine privilégie fenêtre dépassée > urgent > prêt sans jamais sortir de la liste', () => {
-  const passe = { id: 'passe', boire_avant: CURRENT_YEAR - 1 };
-  const urgent = { id: 'urgent', boire_avant: CURRENT_YEAR + 1 };
-  const pret = { id: 'pret', boire_avant: CURRENT_YEAR + 5 };
-  const list = [passe, urgent, pret];
+  const key = 'cave_urgent_horizon_months';
+  // Horizon au maximum (12 mois) : l'année en cours est forcément "urgent",
+  // dans 2 ans forcément "prêt" — déterministe quel que soit le mois réel.
+  app.localStorage.setItem(key, '12');
+  try {
+    const passe = { id: 'passe', boire_avant: CURRENT_YEAR - 1 };
+    const urgent = { id: 'urgent', boire_avant: CURRENT_YEAR };
+    const pret = { id: 'pret', boire_avant: CURRENT_YEAR + 2 };
+    const list = [passe, urgent, pret];
 
-  const counts = { passe: 0, urgent: 0, pret: 0 };
-  for (let i = 0; i < 500; i++) {
-    const picked = app.pickWeightedWine(list);
-    assert.ok(list.includes(picked), 'ne doit jamais retourner un élément hors de la liste fournie');
-    counts[picked.id]++;
+    const counts = { passe: 0, urgent: 0, pret: 0 };
+    for (let i = 0; i < 500; i++) {
+      const picked = app.pickWeightedWine(list);
+      assert.ok(list.includes(picked), 'ne doit jamais retourner un élément hors de la liste fournie');
+      counts[picked.id]++;
+    }
+    // Poids relatifs 3/2/1 : "passe" doit statistiquement dominer largement "pret".
+    assert.ok(counts.passe > counts.pret, `passe (${counts.passe}) devrait dépasser pret (${counts.pret}) sur 500 tirages`);
+    assert.ok(counts.urgent > counts.pret, `urgent (${counts.urgent}) devrait dépasser pret (${counts.pret}) sur 500 tirages`);
+  } finally {
+    app.localStorage.removeItem(key);
   }
-  // Poids relatifs 3/2/1 : "passe" doit statistiquement dominer largement "pret".
-  assert.ok(counts.passe > counts.pret, `passe (${counts.passe}) devrait dépasser pret (${counts.pret}) sur 500 tirages`);
 });
 
 test('pickWeightedWine ne choisit que l\'unique élément d\'une liste à un seul vin', () => {
