@@ -1196,9 +1196,20 @@
 
   <!-- ── TAB : HISTORIQUE ───────────────────────── -->
   <div class="section hidden" id="tab-historique">
-    <p class="scan-hint" style="margin-top:0">Le filtrage par couleur, cépage, région, pays, accord et coups de cœur/à racheter se règle dans l'onglet Stats → Consommation ; il s'applique aussi à ce journal.</p>
     <div class="search-row">
       <input class="search-input" type="search" placeholder="Rechercher..." id="historiqueSearch" />
+    </div>
+    <div class="filters" id="journalColorFilters">
+      <button class="filter-chip active" data-filter="tous">Tous</button>
+      <button class="filter-chip" data-filter="rouge">🍷 Rouge</button>
+      <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
+      <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
+      <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
+    </div>
+    <div class="filters">
+      <button class="filter-chip active" data-journal-coup-de-coeur="tous">Tous</button>
+      <button class="filter-chip" data-journal-coup-de-coeur="favoris">⭐ Coups de cœur</button>
+      <button class="filter-chip" data-journal-coup-de-coeur="a_racheter">🛒 À racheter</button>
     </div>
     <div class="filters-grid">
     <div class="sort-row">
@@ -1213,6 +1224,30 @@
         <option value="note_desc">Note (meilleure → moins bonne)</option>
         <option value="note_asc">Note (moins bonne → meilleure)</option>
         <option value="nom">Nom (A → Z)</option>
+      </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">Cépage</span>
+      <select class="form-select sort-select" id="journalCepageFilterSelect">
+        <option value="tous">Tous les cépages</option>
+      </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">Région</span>
+      <select class="form-select sort-select" id="journalRegionFilterSelect">
+        <option value="tous">Toutes les régions</option>
+      </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">Pays</span>
+      <select class="form-select sort-select" id="journalPaysFilterSelect">
+        <option value="tous">Tous les pays</option>
+      </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">À boire avec</span>
+      <select class="form-select sort-select" id="journalAccordFilterSelect">
+        <option value="tous">Tous les accords</option>
       </select>
     </div>
     </div>
@@ -2337,7 +2372,6 @@ document.getElementById('historiqueColorFilters').addEventListener('click', e =>
   chip.classList.add('active');
   historiqueCouleurFilter = chip.dataset.filter;
   renderHistoriqueStats();
-  renderHistorique();
 });
 
 document.getElementById('historiqueSortSelect').addEventListener('change', e => {
@@ -2373,25 +2407,21 @@ function sortArchive(list) {
 document.getElementById('historiqueCepageFilterSelect').addEventListener('change', e => {
   historiqueCepageFilter = e.target.value;
   renderHistoriqueStats();
-  renderHistorique();
 });
 
 document.getElementById('historiqueRegionFilterSelect').addEventListener('change', e => {
   historiqueRegionFilter = e.target.value;
   renderHistoriqueStats();
-  renderHistorique();
 });
 
 document.getElementById('historiquePaysFilterSelect').addEventListener('change', e => {
   historiquePaysFilter = e.target.value;
   renderHistoriqueStats();
-  renderHistorique();
 });
 
 document.getElementById('historiqueAccordFilterSelect').addEventListener('change', e => {
   historiqueAccordFilter = e.target.value;
   renderHistoriqueStats();
-  renderHistorique();
 });
 
 function updateHistoriqueCepageFilterOptions() {
@@ -2455,6 +2485,122 @@ function updateHistoriqueAccordFilterOptions() {
     select.value = previousValue;
   } else {
     historiqueAccordFilter = 'tous';
+  }
+}
+
+// ── Filtres du journal (onglet Historique), indépendants de Stats → Consommation ──
+let journalCouleurFilter = 'tous';
+let journalCepageFilter = 'tous';
+let journalRegionFilter = 'tous';
+let journalPaysFilter = 'tous';
+let journalAccordFilter = 'tous';
+let journalFilter = 'tous';
+
+function matchJournalFilter(w) {
+  if (journalFilter === 'favoris') return w.note_sur_5 >= 4;
+  if (journalFilter === 'a_racheter') return !!w.a_racheter;
+  return true;
+}
+
+document.getElementById('journalColorFilters').addEventListener('click', e => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  document.querySelectorAll('#journalColorFilters .filter-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  journalCouleurFilter = chip.dataset.filter;
+  renderHistorique();
+});
+
+document.querySelectorAll('[data-journal-coup-de-coeur]').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('[data-journal-coup-de-coeur]').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    journalFilter = chip.dataset.journalCoupDeCoeur;
+    renderHistorique();
+  });
+});
+
+document.getElementById('journalCepageFilterSelect').addEventListener('change', e => {
+  journalCepageFilter = e.target.value;
+  renderHistorique();
+});
+
+document.getElementById('journalRegionFilterSelect').addEventListener('change', e => {
+  journalRegionFilter = e.target.value;
+  renderHistorique();
+});
+
+document.getElementById('journalPaysFilterSelect').addEventListener('change', e => {
+  journalPaysFilter = e.target.value;
+  renderHistorique();
+});
+
+document.getElementById('journalAccordFilterSelect').addEventListener('change', e => {
+  journalAccordFilter = e.target.value;
+  renderHistorique();
+});
+
+function updateJournalCepageFilterOptions() {
+  const select = document.getElementById('journalCepageFilterSelect');
+  const allCepages = new Set();
+  archive.forEach(w => splitCepages(w.cepage).forEach(c => allCepages.add(c)));
+  const cepages = [...allCepages].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Tous les cépages</option>` +
+    cepages.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  if (cepages.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    journalCepageFilter = 'tous';
+  }
+}
+
+function updateJournalRegionFilterOptions() {
+  const select = document.getElementById('journalRegionFilterSelect');
+  const regions = [...new Set(archive.map(w => w.region).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Toutes les régions</option>` +
+    regions.map(r => `<option value="${r}">${r}</option>`).join('');
+
+  if (regions.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    journalRegionFilter = 'tous';
+  }
+}
+
+function updateJournalPaysFilterOptions() {
+  const select = document.getElementById('journalPaysFilterSelect');
+  const paysList = [...new Set(archive.map(w => w.pays).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Tous les pays</option>` +
+    paysList.map(p => `<option value="${p}">${p}</option>`).join('');
+
+  if (paysList.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    journalPaysFilter = 'tous';
+  }
+}
+
+function updateJournalAccordFilterOptions() {
+  const select = document.getElementById('journalAccordFilterSelect');
+  const allAccords = new Set();
+  archive.forEach(w => splitAccords(w.accord_mets).forEach(a => allAccords.add(a)));
+  const accords = [...allAccords].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Tous les accords</option>` +
+    accords.map(a => `<option value="${a}">${a}</option>`).join('');
+
+  if (accords.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    journalAccordFilter = 'tous';
   }
 }
 
@@ -2602,20 +2748,20 @@ function renderHistoriqueStats() {
 }
 
 function renderHistorique() {
-  updateHistoriqueCepageFilterOptions();
-  updateHistoriqueRegionFilterOptions();
-  updateHistoriquePaysFilterOptions();
-  updateHistoriqueAccordFilterOptions();
+  updateJournalCepageFilterOptions();
+  updateJournalRegionFilterOptions();
+  updateJournalPaysFilterOptions();
+  updateJournalAccordFilterOptions();
 
   const list = document.getElementById('historiqueList');
 
   let filtered = archive.filter(w => {
-    const matchFavoris = matchHistoriqueFilter(w);
-    const matchCouleur = historiqueCouleurFilter === 'tous' || w.couleur === historiqueCouleurFilter;
-    const matchCepage = historiqueCepageFilter === 'tous' || splitCepages(w.cepage).includes(historiqueCepageFilter);
-    const matchRegion = historiqueRegionFilter === 'tous' || w.region === historiqueRegionFilter;
-    const matchPays = historiquePaysFilter === 'tous' || w.pays === historiquePaysFilter;
-    const matchAccord = historiqueAccordFilter === 'tous' || splitAccords(w.accord_mets).includes(historiqueAccordFilter);
+    const matchFavoris = matchJournalFilter(w);
+    const matchCouleur = journalCouleurFilter === 'tous' || w.couleur === journalCouleurFilter;
+    const matchCepage = journalCepageFilter === 'tous' || splitCepages(w.cepage).includes(journalCepageFilter);
+    const matchRegion = journalRegionFilter === 'tous' || w.region === journalRegionFilter;
+    const matchPays = journalPaysFilter === 'tous' || w.pays === journalPaysFilter;
+    const matchAccord = journalAccordFilter === 'tous' || splitAccords(w.accord_mets).includes(journalAccordFilter);
     const q = historiqueSearch.toLowerCase();
     const matchSearch = !q || w.nom.toLowerCase().includes(q)
       || (w.domaine || '').toLowerCase().includes(q)
@@ -2672,7 +2818,6 @@ document.querySelectorAll('[data-coup-de-coeur]').forEach(chip => {
     chip.classList.add('active');
     historiqueFilter = chip.dataset.coupDeCoeur;
     renderHistoriqueStats();
-    renderHistorique();
   });
 });
 
