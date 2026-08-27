@@ -993,6 +993,7 @@
       <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
       <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
       <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
+      <button class="filter-chip" data-filter="fortifié">🍶 Fortifié</button>
     </div>
     <div class="filters-grid">
     <div class="sort-row">
@@ -1045,6 +1046,7 @@
       <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
       <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
       <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
+      <button class="filter-chip" data-filter="fortifié">🍶 Fortifié</button>
     </div>
     <div class="filters-grid">
     <div class="sort-row">
@@ -1088,6 +1090,7 @@
       <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
       <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
       <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
+      <button class="filter-chip" data-filter="fortifié">🍶 Fortifié</button>
     </div>
     <div class="filters-grid">
     <div class="sort-row">
@@ -1143,6 +1146,7 @@
       <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
       <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
       <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
+      <button class="filter-chip" data-filter="fortifié">🍶 Fortifié</button>
     </div>
     <div class="filters">
       <button class="filter-chip active" data-coup-de-coeur="tous">Tous</button>
@@ -1289,6 +1293,9 @@
         </button>
         <button class="couleur-option" data-c="pétillant">
           <span class="couleur-dot" style="background:var(--petillant)"></span>Pétillant
+        </button>
+        <button class="couleur-option" data-c="fortifié">
+          <span class="couleur-dot" style="background:var(--fortifie)"></span>Fortifié
         </button>
       </div>
     </div>
@@ -3370,7 +3377,7 @@ MILLESIME: [année à 4 chiffres]
 REGION: [région ou appellation]
 PAYS: [pays d'origine]
 CEPAGE: [cépage(s) — voir règle ci-dessous]
-COULEUR: [un seul mot parmi : rouge, blanc, rosé, pétillant]
+COULEUR: [un seul mot parmi : rouge, blanc, rosé, pétillant, fortifié]
 BOIRE_DES: [année à 4 chiffres]
 BOIRE_AVANT: [année à 4 chiffres]
 ACCORD_METS: [2 à 4 suggestions d'accords mets-vin, séparées par des virgules — voir règle ci-dessous]
@@ -3428,7 +3435,7 @@ function parseAiImportText(raw) {
   return result;
 }
 
-const COULEUR_VALIDES = ['rouge', 'blanc', 'rosé', 'pétillant'];
+const COULEUR_VALIDES = ['rouge', 'blanc', 'rosé', 'pétillant', 'fortifié'];
 
 document.getElementById('btnAiImportParse').addEventListener('click', () => {
   const raw = document.getElementById('aiImportText').value;
