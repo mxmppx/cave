@@ -970,6 +970,7 @@
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn-theme" id="btnExport" aria-label="Exporter mes données">📤</button>
+      <button class="btn-theme" id="btnSettings" aria-label="Réglages">⚙️</button>
       <button class="btn-theme" id="btnLogout" aria-label="Déconnexion" onclick="logout()">🔒</button>
       <button class="btn-theme" id="btnTheme" aria-label="Thème">🌙</button>
     </div>
@@ -1196,9 +1197,20 @@
 
   <!-- ── TAB : HISTORIQUE ───────────────────────── -->
   <div class="section hidden" id="tab-historique">
-    <p class="scan-hint" style="margin-top:0">Le filtrage par couleur, cépage, région, pays, accord et coups de cœur/à racheter se règle dans l'onglet Stats → Consommation ; il s'applique aussi à ce journal.</p>
     <div class="search-row">
       <input class="search-input" type="search" placeholder="Rechercher..." id="historiqueSearch" />
+    </div>
+    <div class="filters" id="journalColorFilters">
+      <button class="filter-chip active" data-filter="tous">Tous</button>
+      <button class="filter-chip" data-filter="rouge">🍷 Rouge</button>
+      <button class="filter-chip" data-filter="blanc">🥂 Blanc</button>
+      <button class="filter-chip" data-filter="rosé">🌸 Rosé</button>
+      <button class="filter-chip" data-filter="pétillant">✨ Pétillant</button>
+    </div>
+    <div class="filters">
+      <button class="filter-chip active" data-journal-coup-de-coeur="tous">Tous</button>
+      <button class="filter-chip" data-journal-coup-de-coeur="favoris">⭐ Coups de cœur</button>
+      <button class="filter-chip" data-journal-coup-de-coeur="a_racheter">🛒 À racheter</button>
     </div>
     <div class="filters-grid">
     <div class="sort-row">
@@ -1213,6 +1225,30 @@
         <option value="note_desc">Note (meilleure → moins bonne)</option>
         <option value="note_asc">Note (moins bonne → meilleure)</option>
         <option value="nom">Nom (A → Z)</option>
+      </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">Cépage</span>
+      <select class="form-select sort-select" id="journalCepageFilterSelect">
+        <option value="tous">Tous les cépages</option>
+      </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">Région</span>
+      <select class="form-select sort-select" id="journalRegionFilterSelect">
+        <option value="tous">Toutes les régions</option>
+      </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">Pays</span>
+      <select class="form-select sort-select" id="journalPaysFilterSelect">
+        <option value="tous">Tous les pays</option>
+      </select>
+    </div>
+    <div class="sort-row">
+      <span class="sort-label">À boire avec</span>
+      <select class="form-select sort-select" id="journalAccordFilterSelect">
+        <option value="tous">Tous les accords</option>
       </select>
     </div>
     </div>
@@ -1403,7 +1439,10 @@
     </div>
     <div class="form-group">
       <label class="form-label">Note de dégustation (optionnel)</label>
-      <textarea class="form-textarea" id="archiveNote" placeholder="Très bon, à racheter ! Tanins encore un peu fermes…"></textarea>
+      <textarea class="form-textarea" id="archiveNote" placeholder="Tanins encore un peu fermes, à attendre encore un peu…"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label"><input type="checkbox" id="archiveARacheter" /> 🛒 À racheter</label>
     </div>
     <div class="form-actions">
       <button class="btn-cancel" id="btnArchiveCancel">Annuler</button>
@@ -1482,6 +1521,22 @@
   </div>
 </div>
 
+<!-- ── MODAL : RÉGLAGES ─────────────────────────────── -->
+<div class="modal-overlay hidden" id="modalSettings">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-close-bar"><button class="modal-close-btn" data-close-modal="modalSettings" aria-label="Fermer">✕</button></div>
+    <div class="modal-title">Réglages ⚙️</div>
+    <div class="form-group">
+      <label class="form-label">Horizon "urgent" (années)</label>
+      <input class="form-input" id="settingsUrgentHorizon" type="number" min="1" max="10" />
+    </div>
+    <p class="scan-hint" style="margin-top:-10px">Un vin passe au statut "À boire !" quand il reste ce nombre d'années (ou moins) avant la fin de sa fenêtre de dégustation. Par défaut : 1 an.</p>
+    <div class="form-actions">
+      <button class="btn-save" id="btnSettingsSave" style="flex:1">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── MODAL : DOUBLON ──────────────────────────────── -->
 <div class="modal-overlay hidden" id="modalDuplicate">
   <div class="modal" style="max-width:480px">
@@ -1489,7 +1544,7 @@
     <div class="modal-title">Vin déjà en cave ? 🤔</div>
     <div id="duplicateContent"></div>
     <div class="form-actions" style="flex-direction:column;gap:8px;margin-top:18px">
-      <button class="btn-save" id="btnDupMerge" style="flex:none;width:100%">Oui, fusionner les quantités</button>
+      <button class="btn-save" id="btnDupMerge" style="flex:none;width:100%">Oui, fusionner (quantité + champs vides complétés)</button>
       <button class="btn-cancel" id="btnDupSeparate" style="flex:none;width:100%">Non, créer une entrée séparée</button>
       <button class="btn-delete-full" id="btnDupCancel">Annuler</button>
     </div>
@@ -1625,6 +1680,12 @@ async function loadAppData() {
 
 // ── Helpers ───────────────────────────────────────────
 const YEAR = new Date().getFullYear();
+const URGENT_HORIZON_KEY = 'cave_urgent_horizon_years';
+
+function getUrgentHorizon() {
+  const v = parseInt(localStorage.getItem(URGENT_HORIZON_KEY), 10);
+  return Number.isInteger(v) && v >= 1 ? v : 1;
+}
 
 function getStatut(w) {
   const debut = w.boire_a_partir_de;
@@ -1632,7 +1693,7 @@ function getStatut(w) {
   if (!debut && !fin) return null;
   if (fin && YEAR > fin) return 'passe';
   if (debut && YEAR < debut) return 'attendre';
-  if (fin && fin - YEAR <= 1) return 'urgent';
+  if (fin && fin - YEAR <= getUrgentHorizon()) return 'urgent';
   return 'pret';
 }
 
@@ -2056,9 +2117,9 @@ function renderStats() {
       <div class="stat-sub">${statutCounts.pret} référence${statutCounts.pret > 1 ? 's' : ''} · ${statutBouteilles.urgent} btl urgentes (${statutCounts.urgent} réf.) · ${statutBouteilles.attendre} btl en attente (${statutCounts.attendre} réf.)</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Périmés</div>
+      <div class="stat-label">Fenêtre dépassée</div>
       <div class="stat-value" style="color:var(--passe)">${statutBouteilles.passe}</div>
-      <div class="stat-sub">${statutCounts.passe} référence${statutCounts.passe > 1 ? 's' : ''} · fenêtre dépassée</div>
+      <div class="stat-sub">${statutCounts.passe} référence${statutCounts.passe > 1 ? 's' : ''}</div>
     </div>
     <div class="stat-card full">
       <div class="stat-label">Répartition par couleur</div>
@@ -2337,7 +2398,6 @@ document.getElementById('historiqueColorFilters').addEventListener('click', e =>
   chip.classList.add('active');
   historiqueCouleurFilter = chip.dataset.filter;
   renderHistoriqueStats();
-  renderHistorique();
 });
 
 document.getElementById('historiqueSortSelect').addEventListener('change', e => {
@@ -2373,25 +2433,21 @@ function sortArchive(list) {
 document.getElementById('historiqueCepageFilterSelect').addEventListener('change', e => {
   historiqueCepageFilter = e.target.value;
   renderHistoriqueStats();
-  renderHistorique();
 });
 
 document.getElementById('historiqueRegionFilterSelect').addEventListener('change', e => {
   historiqueRegionFilter = e.target.value;
   renderHistoriqueStats();
-  renderHistorique();
 });
 
 document.getElementById('historiquePaysFilterSelect').addEventListener('change', e => {
   historiquePaysFilter = e.target.value;
   renderHistoriqueStats();
-  renderHistorique();
 });
 
 document.getElementById('historiqueAccordFilterSelect').addEventListener('change', e => {
   historiqueAccordFilter = e.target.value;
   renderHistoriqueStats();
-  renderHistorique();
 });
 
 function updateHistoriqueCepageFilterOptions() {
@@ -2455,6 +2511,122 @@ function updateHistoriqueAccordFilterOptions() {
     select.value = previousValue;
   } else {
     historiqueAccordFilter = 'tous';
+  }
+}
+
+// ── Filtres du journal (onglet Historique), indépendants de Stats → Consommation ──
+let journalCouleurFilter = 'tous';
+let journalCepageFilter = 'tous';
+let journalRegionFilter = 'tous';
+let journalPaysFilter = 'tous';
+let journalAccordFilter = 'tous';
+let journalFilter = 'tous';
+
+function matchJournalFilter(w) {
+  if (journalFilter === 'favoris') return w.note_sur_5 >= 4;
+  if (journalFilter === 'a_racheter') return !!w.a_racheter;
+  return true;
+}
+
+document.getElementById('journalColorFilters').addEventListener('click', e => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  document.querySelectorAll('#journalColorFilters .filter-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  journalCouleurFilter = chip.dataset.filter;
+  renderHistorique();
+});
+
+document.querySelectorAll('[data-journal-coup-de-coeur]').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('[data-journal-coup-de-coeur]').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    journalFilter = chip.dataset.journalCoupDeCoeur;
+    renderHistorique();
+  });
+});
+
+document.getElementById('journalCepageFilterSelect').addEventListener('change', e => {
+  journalCepageFilter = e.target.value;
+  renderHistorique();
+});
+
+document.getElementById('journalRegionFilterSelect').addEventListener('change', e => {
+  journalRegionFilter = e.target.value;
+  renderHistorique();
+});
+
+document.getElementById('journalPaysFilterSelect').addEventListener('change', e => {
+  journalPaysFilter = e.target.value;
+  renderHistorique();
+});
+
+document.getElementById('journalAccordFilterSelect').addEventListener('change', e => {
+  journalAccordFilter = e.target.value;
+  renderHistorique();
+});
+
+function updateJournalCepageFilterOptions() {
+  const select = document.getElementById('journalCepageFilterSelect');
+  const allCepages = new Set();
+  archive.forEach(w => splitCepages(w.cepage).forEach(c => allCepages.add(c)));
+  const cepages = [...allCepages].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Tous les cépages</option>` +
+    cepages.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  if (cepages.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    journalCepageFilter = 'tous';
+  }
+}
+
+function updateJournalRegionFilterOptions() {
+  const select = document.getElementById('journalRegionFilterSelect');
+  const regions = [...new Set(archive.map(w => w.region).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Toutes les régions</option>` +
+    regions.map(r => `<option value="${r}">${r}</option>`).join('');
+
+  if (regions.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    journalRegionFilter = 'tous';
+  }
+}
+
+function updateJournalPaysFilterOptions() {
+  const select = document.getElementById('journalPaysFilterSelect');
+  const paysList = [...new Set(archive.map(w => w.pays).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Tous les pays</option>` +
+    paysList.map(p => `<option value="${p}">${p}</option>`).join('');
+
+  if (paysList.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    journalPaysFilter = 'tous';
+  }
+}
+
+function updateJournalAccordFilterOptions() {
+  const select = document.getElementById('journalAccordFilterSelect');
+  const allAccords = new Set();
+  archive.forEach(w => splitAccords(w.accord_mets).forEach(a => allAccords.add(a)));
+  const accords = [...allAccords].sort((a,b) => a.localeCompare(b));
+  const previousValue = select.value;
+
+  select.innerHTML = `<option value="tous">Tous les accords</option>` +
+    accords.map(a => `<option value="${a}">${a}</option>`).join('');
+
+  if (accords.includes(previousValue)) {
+    select.value = previousValue;
+  } else {
+    journalAccordFilter = 'tous';
   }
 }
 
@@ -2602,20 +2774,20 @@ function renderHistoriqueStats() {
 }
 
 function renderHistorique() {
-  updateHistoriqueCepageFilterOptions();
-  updateHistoriqueRegionFilterOptions();
-  updateHistoriquePaysFilterOptions();
-  updateHistoriqueAccordFilterOptions();
+  updateJournalCepageFilterOptions();
+  updateJournalRegionFilterOptions();
+  updateJournalPaysFilterOptions();
+  updateJournalAccordFilterOptions();
 
   const list = document.getElementById('historiqueList');
 
   let filtered = archive.filter(w => {
-    const matchFavoris = matchHistoriqueFilter(w);
-    const matchCouleur = historiqueCouleurFilter === 'tous' || w.couleur === historiqueCouleurFilter;
-    const matchCepage = historiqueCepageFilter === 'tous' || splitCepages(w.cepage).includes(historiqueCepageFilter);
-    const matchRegion = historiqueRegionFilter === 'tous' || w.region === historiqueRegionFilter;
-    const matchPays = historiquePaysFilter === 'tous' || w.pays === historiquePaysFilter;
-    const matchAccord = historiqueAccordFilter === 'tous' || splitAccords(w.accord_mets).includes(historiqueAccordFilter);
+    const matchFavoris = matchJournalFilter(w);
+    const matchCouleur = journalCouleurFilter === 'tous' || w.couleur === journalCouleurFilter;
+    const matchCepage = journalCepageFilter === 'tous' || splitCepages(w.cepage).includes(journalCepageFilter);
+    const matchRegion = journalRegionFilter === 'tous' || w.region === journalRegionFilter;
+    const matchPays = journalPaysFilter === 'tous' || w.pays === journalPaysFilter;
+    const matchAccord = journalAccordFilter === 'tous' || splitAccords(w.accord_mets).includes(journalAccordFilter);
     const q = historiqueSearch.toLowerCase();
     const matchSearch = !q || w.nom.toLowerCase().includes(q)
       || (w.domaine || '').toLowerCase().includes(q)
@@ -2672,14 +2844,13 @@ document.querySelectorAll('[data-coup-de-coeur]').forEach(chip => {
     chip.classList.add('active');
     historiqueFilter = chip.dataset.coupDeCoeur;
     renderHistoriqueStats();
-    renderHistorique();
   });
 });
 
 document.getElementById('colorFilters').addEventListener('click', e => {
   const chip = e.target.closest('.filter-chip');
   if (!chip) return;
-  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('#colorFilters .filter-chip').forEach(c => c.classList.remove('active'));
   chip.classList.add('active');
   filterCouleur = chip.dataset.filter;
   renderCave();
@@ -2900,6 +3071,9 @@ function openArchiveDetail(id) {
         boire_avant: w.boire_avant,
         notes: w.notes,
         photo_url: w.photo_url,
+        emplacement: w.emplacement,
+        date_achat: w.date_achat,
+        caviste: w.caviste,
       });
     }
 
@@ -2945,6 +3119,7 @@ function openArchiveModal(wine, quantiteBue, quantiteRestante) {
   archiveTarget = { wine, quantiteBue, quantiteRestante };
   selectedStars = 0;
   document.getElementById('archiveNote').value = '';
+  document.getElementById('archiveARacheter').checked = false;
   updateStarDisplay();
   document.getElementById('modalArchive').classList.remove('hidden');
 }
@@ -2967,6 +3142,7 @@ async function confirmArchive() {
   if (!archiveTarget) return;
   const { wine: w, quantiteBue, quantiteRestante } = archiveTarget;
   const note = document.getElementById('archiveNote').value.trim() || null;
+  const selectedARacheter = document.getElementById('archiveARacheter').checked;
 
   const btn = document.getElementById('btnArchiveConfirm');
   btn.textContent = 'Archivage…';
@@ -2987,6 +3163,10 @@ async function confirmArchive() {
     boire_avant: w.boire_avant,
     photo_url: w.photo_url,
     notes: w.notes,
+    emplacement: w.emplacement,
+    date_achat: w.date_achat,
+    caviste: w.caviste,
+    a_racheter: selectedARacheter,
     note_degustation: note,
     note_sur_5: selectedStars > 0 ? selectedStars : null,
     created_at: w.created_at,
@@ -3323,6 +3503,12 @@ document.getElementById('btnFormSave').addEventListener('click', async () => {
   if (!nom) { showToast('Le nom est requis'); return; }
   if (!selectedCouleur) { showToast('Sélectionnez une couleur'); return; }
 
+  const qtyRaw = document.getElementById('fQuantite').value;
+  if (qtyRaw !== '' && (!Number.isInteger(parseFloat(qtyRaw)) || parseInt(qtyRaw, 10) < 1)) {
+    showToast('La quantité doit être un nombre entier d\'au moins 1');
+    return;
+  }
+
   const payload = buildWinePayload(nom);
 
   // Détection de doublon uniquement en mode ajout (pas en édition)
@@ -3409,6 +3595,9 @@ function openDuplicateModal(existing, newPayload) {
       <div class="dup-row"><span>Couleur</span><b>${w.couleur || '—'}</b></div>
       <div class="dup-row"><span>Quantité</span><b>${w.quantite}</b></div>
       <div class="dup-row"><span>Prix</span><b>${w.prix_achat ? w.prix_achat + ' CHF' : '—'}</b></div>
+      <div class="dup-row"><span>Emplacement</span><b>${w.emplacement || '—'}</b></div>
+      <div class="dup-row"><span>Date d'achat</span><b>${w.date_achat ? new Date(w.date_achat).toLocaleDateString('fr-CH') : '—'}</b></div>
+      <div class="dup-row"><span>Caviste</span><b>${w.caviste || '—'}</b></div>
     </div>`;
 
   document.getElementById('duplicateContent').innerHTML = `
@@ -3422,15 +3611,29 @@ function openDuplicateModal(existing, newPayload) {
   document.getElementById('modalDuplicate').classList.remove('hidden');
 }
 
+// Champs qu'on complète sur la fiche existante avec la nouvelle saisie,
+// uniquement s'ils sont vides — jamais d'écrasement d'une valeur déjà saisie
+const DUP_MERGE_FILLABLE_FIELDS = [
+  'region', 'cepage', 'accord_mets', 'prix_achat', 'boire_a_partir_de',
+  'boire_avant', 'emplacement', 'date_achat', 'caviste', 'notes',
+];
+
 document.getElementById('btnDupMerge').addEventListener('click', async () => {
   if (!duplicateContext) return;
   const { existing, newPayload } = duplicateContext;
   const newQty = (existing.quantite || 0) + (newPayload.quantite || 0);
 
+  const update = { quantite: newQty };
+  DUP_MERGE_FILLABLE_FIELDS.forEach(key => {
+    if ((existing[key] === null || existing[key] === undefined || existing[key] === '') && newPayload[key]) {
+      update[key] = newPayload[key];
+    }
+  });
+
   closeModal('modalDuplicate');
   closeModal('modalForm');
 
-  await db.from('wines').update({ quantite: newQty }).eq('id', existing.id);
+  await db.from('wines').update(update).eq('id', existing.id);
   showToast(`Quantité mise à jour : ${newQty} bouteilles`);
   duplicateContext = null;
   await loadWines();
@@ -3463,7 +3666,7 @@ document.getElementById('btnDelete').addEventListener('click', async () => {
 document.getElementById('btnFormCancel').addEventListener('click', () => closeModal('modalForm'));
 
 // Close on overlay click
-['modalForm','modalDetail','modalArchive','modalDuplicate'].forEach(id => {
+['modalForm','modalDetail','modalArchive','modalDuplicate','modalEditArchive','modalExport','modalRestore','modalAiImport','modalSettings'].forEach(id => {
   document.getElementById(id).addEventListener('click', e => {
     if (e.target === e.currentTarget) closeModal(id);
   });
@@ -3477,6 +3680,8 @@ function closeModal(id) {
   }
   if (id === 'modalArchive') archiveTarget = null;
   if (id === 'modalDuplicate') duplicateContext = null;
+  if (id === 'modalEditArchive') editArchiveTarget = null;
+  if (id === 'modalRestore') restoreContext = null;
 }
 
 // ── Verrouillage du scroll de la page derrière toute modale ouverte ──
@@ -3525,15 +3730,16 @@ BOIRE_DES: [année à 4 chiffres]
 BOIRE_AVANT: [année à 4 chiffres]
 ACCORD_METS: [2 à 4 suggestions d'accords mets-vin, séparées par des virgules — voir règle ci-dessous]
 PRIX_CHF: [prix en francs suisses]
+CAVISTE: [nom du vendeur suisse où ce prix a été trouvé — voir règle ci-dessous]
 
 Règles pour chaque champ :
 - NOM, DOMAINE, MILLESIME, REGION, PAYS, COULEUR : lis-les directement sur l'étiquette. Si une info n'est pas visible, laisse la valeur vide.
 - CEPAGE : si le cépage n'est pas écrit explicitement sur l'étiquette, déduis-le à partir de l'appellation et de la région (ex: un Chablis est en Chardonnay, un Gevrey-Chambertin est en Pinot Noir, un Côtes-de-Provence rosé est souvent Grenache/Cinsault/Syrah). Indique le ou les cépages les plus probables. Si vraiment aucune déduction fiable n'est possible, laisse vide plutôt que d'inventer.
 - BOIRE_DES et BOIRE_AVANT : estime la fenêtre de dégustation optimale en te basant sur le type de vin, la région, le millésime et le potentiel de garde habituel de ce style de vin (ex: un Beaujolais primeur se boit jeune, un grand Bordeaux ou un Barolo peut se garder 10-20 ans). Base-toi sur tes connaissances générales d'œnologie, pas sur l'étiquette elle-même.
 - ACCORD_METS : en te basant sur la couleur, le cépage et le style du vin, indique avec quoi il se marie le mieux. Choisis de préférence parmi : Viande rouge, Viande blanche, Volaille, Gibier, Poisson, Fruits de mer, Fromage, Charcuterie, Apéritif, Cuisine épicée, Végétarien, Dessert. Tu peux préciser entre parenthèses si utile (ex: "Fromage (chèvre)").
-- PRIX_CHF : cherche en ligne ce vin (même nom, domaine et millésime) chez des vendeurs ou cavistes basés en Suisse (ex: Mövenpick Wein, Globus Vins, Denner, Coop, Conforama Vins, Vinatura, Ma Cave à Vin, Gerstl, etc.) et indique le prix trouvé en chiffres uniquement (ex: 24.90). Si aucun vendeur suisse ne propose ce vin, estime un prix plausible en CHF à partir de vins comparables (même appellation, producteur ou gamme) et ajoute la mention "(estimation)" après le chiffre (ex: 18.50 (estimation)).
+- PRIX_CHF et CAVISTE : cherche en ligne ce vin (même nom, domaine et millésime) chez des vendeurs ou cavistes basés en Suisse (ex: Mövenpick Wein, Globus Vins, Denner, Coop, Conforama Vins, Vinatura, Ma Cave à Vin, Gerstl, etc.). Indique dans PRIX_CHF le prix trouvé en chiffres uniquement (ex: 24.90) et dans CAVISTE le nom du vendeur correspondant. Si aucun vendeur suisse ne propose ce vin, estime un prix plausible en CHF à partir de vins comparables (même appellation, producteur ou gamme), ajoute la mention "(estimation)" après le chiffre dans PRIX_CHF (ex: 18.50 (estimation)), et laisse CAVISTE vide.
 
-Réponds avec EXACTEMENT ces 11 lignes, dans cet ordre, rien d'autre.`;
+Réponds avec EXACTEMENT ces 12 lignes, dans cet ordre, rien d'autre.`;
 
 document.getElementById('btnCopyPrompt').addEventListener('click', async () => {
   try {
@@ -3560,6 +3766,7 @@ function parseAiImportText(raw) {
     NOM: 'nom', DOMAINE: 'domaine', MILLESIME: 'millesime',
     REGION: 'region', PAYS: 'pays', CEPAGE: 'cepage', COULEUR: 'couleur',
     BOIRE_DES: 'boireDes', BOIRE_AVANT: 'boireAvant', ACCORD_METS: 'accordMets', PRIX_CHF: 'prix',
+    CAVISTE: 'caviste',
   };
   const result = {};
   const lines = raw.split('\n');
@@ -3644,16 +3851,13 @@ document.getElementById('btnAiImportParse').addEventListener('click', () => {
       prixEstime = /estim/i.test(parsed.prix);
     }
   }
+  if (parsed.caviste) document.getElementById('fCaviste').value = parsed.caviste;
 
   showToast(prixEstime
     ? 'Champs pré-remplis — prix estimé (aucun vendeur suisse trouvé), vérifie avant d’enregistrer ✓'
     : 'Champs pré-remplis — vérifie et complète avant d’enregistrer ✓');
 });
 
-// Fermeture par clic sur l'overlay
-document.getElementById('modalAiImport').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeModal('modalAiImport');
-});
 
 // ── Visionneuse photo plein écran ──────────────────────
 function openImageViewer(url) {
@@ -3778,6 +3982,26 @@ function todayStamp() {
 
 document.getElementById('btnExport').addEventListener('click', () => {
   document.getElementById('modalExport').classList.remove('hidden');
+});
+
+document.getElementById('btnSettings').addEventListener('click', () => {
+  document.getElementById('settingsUrgentHorizon').value = getUrgentHorizon();
+  document.getElementById('modalSettings').classList.remove('hidden');
+});
+
+document.getElementById('btnSettingsSave').addEventListener('click', () => {
+  const raw = document.getElementById('settingsUrgentHorizon').value;
+  const value = parseInt(raw, 10);
+  if (!Number.isInteger(value) || value < 1) {
+    showToast('L\'horizon doit être un nombre entier d\'au moins 1');
+    return;
+  }
+  localStorage.setItem(URGENT_HORIZON_KEY, String(value));
+  closeModal('modalSettings');
+  showToast('Réglages enregistrés ✓');
+  renderCave();
+  renderStats();
+  renderABoire();
 });
 
 document.getElementById('btnExportCaveCsv').addEventListener('click', () => {
