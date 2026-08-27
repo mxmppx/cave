@@ -1889,7 +1889,11 @@ function renderStats() {
   const valeur = filteredWines.reduce((s, w) => s + (w.prix_achat || 0) * (w.quantite || 0), 0);
 
   const statutCounts = { pret: 0, attendre: 0, urgent: 0, passe: 0 };
-  filteredWines.forEach(w => { const s = getStatut(w); if (s) statutCounts[s]++; });
+  const statutBouteilles = { pret: 0, attendre: 0, urgent: 0, passe: 0 };
+  filteredWines.forEach(w => {
+    const s = getStatut(w);
+    if (s) { statutCounts[s]++; statutBouteilles[s] += (w.quantite || 0); }
+  });
 
   const couleurCounts = {};
   filteredWines.forEach(w => {
@@ -1958,13 +1962,13 @@ function renderStats() {
     </div>
     <div class="stat-card">
       <div class="stat-label">Prêts à boire</div>
-      <div class="stat-value green">${statutCounts.pret}</div>
-      <div class="stat-sub">${statutCounts.urgent} urgents · ${statutCounts.attendre} en attente</div>
+      <div class="stat-value green">${statutBouteilles.pret}</div>
+      <div class="stat-sub">${statutCounts.pret} référence${statutCounts.pret > 1 ? 's' : ''} · ${statutBouteilles.urgent} btl urgentes (${statutCounts.urgent} réf.) · ${statutBouteilles.attendre} btl en attente (${statutCounts.attendre} réf.)</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Périmés</div>
-      <div class="stat-value" style="color:var(--passe)">${statutCounts.passe}</div>
-      <div class="stat-sub">fenêtre dépassée</div>
+      <div class="stat-value" style="color:var(--passe)">${statutBouteilles.passe}</div>
+      <div class="stat-sub">${statutCounts.passe} référence${statutCounts.passe > 1 ? 's' : ''} · fenêtre dépassée</div>
     </div>
     <div class="stat-card full">
       <div class="stat-label">Répartition par couleur</div>
