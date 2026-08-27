@@ -1318,6 +1318,10 @@
       <label class="form-label">Prix d'achat (CHF)</label>
       <input class="form-input" id="fPrix" type="number" placeholder="0.00" step="0.01" />
     </div>
+    <div class="form-group">
+      <label class="form-label">Emplacement</label>
+      <input class="form-input" id="fEmplacement" type="text" placeholder="Casier B12, cave beau-frère…" />
+    </div>
     <div class="form-group span-2">
       <label class="form-label">Notes</label>
       <textarea class="form-textarea" id="fNotes" placeholder="Tanins soyeux, nez de fruits rouges…"></textarea>
@@ -1783,7 +1787,8 @@ function renderCave() {
       || (w.domaine || '').toLowerCase().includes(q)
       || (w.region || '').toLowerCase().includes(q)
       || (w.cepage || '').toLowerCase().includes(q)
-      || (w.accord_mets || '').toLowerCase().includes(q);
+      || (w.accord_mets || '').toLowerCase().includes(q)
+      || (w.emplacement || '').toLowerCase().includes(q);
     return matchCouleur && matchCepage && matchRegion && matchPays && matchAccord && matchSearch;
   });
 
@@ -1805,6 +1810,7 @@ function renderCave() {
           <div class="wine-name">${w.nom}</div>
           <div class="wine-sub">${sub || '—'}</div>
           ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${w.accord_mets}</div>` : ''}
+          ${w.emplacement ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">📍 ${w.emplacement}</div>` : ''}
           ${dejaBu > 0 ? `<div class="wine-sub" style="font-size:11px;color:var(--gold);margin-top:2px">↻ déjà bu ${dejaBu}×</div>` : ''}
         </div>
         <div class="wine-right">
@@ -2640,6 +2646,11 @@ function openDetail(id) {
         <div class="detail-item-label">À boire avec</div>
         <div class="detail-item-value">🍽️ ${w.accord_mets}</div>
       </div>` : ''}
+      ${w.emplacement ? `
+      <div class="detail-item" style="grid-column:1/-1">
+        <div class="detail-item-label">Emplacement</div>
+        <div class="detail-item-value">📍 ${w.emplacement}</div>
+      </div>` : ''}
     </div>
     ${w.notes ? `<div class="detail-notes">💬 ${w.notes}</div>` : ''}
     <div class="detail-actions">
@@ -3035,7 +3046,7 @@ function openForm(id = null) {
   document.getElementById('btnScanLabel').classList.add('hidden');
   document.getElementById('fPhoto').value = ''; // reset pour garantir le déclenchement de 'change' même en ressélectionnant le même fichier
 
-  const fields = { fNom:'', fDomaine:'', fMillesime:'', fRegion:'', fPays:'France', fCepage:'', fAccord:'', fQuantite:1, fBoireDepuis:'', fBoireAvant:'', fPrix:'', fNotes:'' };
+  const fields = { fNom:'', fDomaine:'', fMillesime:'', fRegion:'', fPays:'France', fCepage:'', fAccord:'', fQuantite:1, fBoireDepuis:'', fBoireAvant:'', fPrix:'', fEmplacement:'', fNotes:'' };
 
   if (id) {
     const w = wines.find(x => x.id === id);
@@ -3051,6 +3062,7 @@ function openForm(id = null) {
       fields.fBoireDepuis = w.boire_a_partir_de || '';
       fields.fBoireAvant  = w.boire_avant || '';
       fields.fPrix      = w.prix_achat || '';
+      fields.fEmplacement = w.emplacement || '';
       fields.fNotes     = w.notes || '';
       selectedCouleur   = w.couleur;
 
@@ -3222,6 +3234,7 @@ function buildWinePayload(nom) {
     boire_a_partir_de:  parseInt(document.getElementById('fBoireDepuis').value) || null,
     boire_avant:        parseInt(document.getElementById('fBoireAvant').value) || null,
     prix_achat:         parseFloat(document.getElementById('fPrix').value) || null,
+    emplacement:        document.getElementById('fEmplacement').value.trim() || null,
     notes:              document.getElementById('fNotes').value.trim() || null,
   };
 }
@@ -3617,6 +3630,7 @@ const CAVE_CSV_HEADERS = [
   { key: 'prix_achat', label: 'Prix unitaire (CHF)' },
   { key: 'boire_a_partir_de', label: 'Boire à partir de' },
   { key: 'boire_avant', label: 'Boire avant' },
+  { key: 'emplacement', label: 'Emplacement' },
   { key: 'notes', label: 'Notes' },
 ];
 

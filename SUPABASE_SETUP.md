@@ -134,6 +134,19 @@ alter table public.wines add column accord_mets text;
 alter table public.wines_archive add column accord_mets text;
 ```
 
+## 7. Colonne "emplacement" (localisation physique de la bouteille)
+
+Champ libre affiché dans le formulaire et la fiche détaillée. Sans elle,
+l'ajout/modification d'un vin renverra une erreur `column "emplacement"
+does not exist`.
+
+```sql
+alter table public.wines add column emplacement text;
+```
+
+Pas nécessaire sur `wines_archive` : l'emplacement physique n'a plus de
+sens une fois la bouteille bue.
+
 ## Checklist de vérification
 
 - [ ] Navigation privée → écran de login apparaît, aucune donnée visible
