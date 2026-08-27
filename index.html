@@ -1337,7 +1337,7 @@
 
     <div class="form-actions">
       <button class="btn-cancel" id="btnFormCancel">Annuler</button>
-      <button class="btn-delete hidden" id="btnDelete">🗑</button>
+      <button class="btn-delete hidden" id="btnDelete" title="Retirer de la cave sans l'ajouter à l'historique (erreur de saisie, doublon...)">🗑</button>
       <button class="btn-save" id="btnFormSave">Enregistrer</button>
     </div>
   </div>
@@ -2626,10 +2626,10 @@ function openDetail(id) {
     </div>
     ${w.notes ? `<div class="detail-notes">💬 ${w.notes}</div>` : ''}
     <div class="detail-actions">
-      <button class="btn-consume" id="btnConsume">−1 bouteille</button>
+      <button class="btn-consume" id="btnConsume">−1 bue</button>
       <button class="btn-edit" id="btnDetailEdit">Modifier</button>
     </div>
-    <button class="btn-delete-full" id="btnDetailDelete">🗑 Archiver tout le stock restant</button>
+    <button class="btn-delete-full" id="btnDetailDelete">📖 Tout marquer comme bu</button>
   `;
 
   if (w.photo_url) {
@@ -2641,14 +2641,14 @@ function openDetail(id) {
     openForm(id);
   });
 
-  // −1 bouteille : on archive systématiquement 1 unité avec une note de dégustation
+  // −1 bue : on archive systématiquement 1 unité avec une note de dégustation
   document.getElementById('btnConsume').addEventListener('click', () => {
     if (w.quantite <= 0) return;
     closeModal('modalDetail');
     openArchiveModal(w, 1, w.quantite - 1); // archive 1, garde (quantite - 1) en cave
   });
 
-  // Archiver tout le stock restant
+  // Tout marquer comme bu
   document.getElementById('btnDetailDelete').addEventListener('click', () => {
     closeModal('modalDetail');
     openArchiveModal(w, w.quantite, 0); // archive tout, ne garde rien
@@ -3309,10 +3309,10 @@ document.getElementById('btnDupCancel').addEventListener('click', () => {
 // Delete
 document.getElementById('btnDelete').addEventListener('click', async () => {
   if (!editingId) return;
-  if (!confirm('Supprimer ce vin ?')) return;
+  if (!confirm('Retirer cette fiche de la cave sans l\'ajouter à l\'historique (erreur de saisie, doublon...) ? Pour une bouteille bue, utilisez plutôt "−1 bue" ou "Tout marquer comme bu".')) return;
   await db.from('wines').delete().eq('id', editingId);
   closeModal('modalForm');
-  showToast('Vin supprimé');
+  showToast('Vin retiré de la cave');
   await loadWines();
 });
 
