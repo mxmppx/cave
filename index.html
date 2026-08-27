@@ -1664,7 +1664,7 @@ async function loadWines() {
   const { data, error } = await db.from('wines').select('*').order('boire_avant', { ascending: true, nullsFirst: false });
   if (error) {
     console.error('Erreur chargement wines:', error);
-    document.getElementById('wineList').innerHTML = `<div class="empty"><div class="empty-icon">❌</div><h3>Erreur Supabase</h3><p>${error.message || error.hint || 'réponse inattendue'}</p></div>`;
+    document.getElementById('wineList').innerHTML = `<div class="empty"><div class="empty-icon">❌</div><h3>Erreur Supabase</h3><p>${escapeHtml(error.message || error.hint || 'réponse inattendue')}</p></div>`;
     return;
   }
   wines = data || [];
@@ -1719,15 +1719,42 @@ const COULEUR_CLASS = {
   rouge: 'fill-rouge', blanc: 'fill-blanc', 'rosé': 'fill-rose', 'pétillant': 'fill-petillant'
 };
 
+// N'autorise que des URL http(s) dans un attribut src — rejette javascript:
+// et autres schémas dangereux qu'une sauvegarde JSON restaurée pourrait contenir.
+function safeImageUrl(url) {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url, window.location.href);
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') ? parsed.href : '';
+  } catch {
+    return '';
+  }
+}
+
 function photoOrEmoji(w, size = 52) {
-  if (w.photo_url) {
-    return `<div class="wine-thumb" style="width:${size}px;height:${size}px"><img src="${w.photo_url}" alt="${w.nom}" /></div>`;
+  const src = safeImageUrl(w.photo_url);
+  if (src) {
+    return `<div class="wine-thumb" style="width:${size}px;height:${size}px"><img src="${escapeHtml(src)}" alt="${escapeHtml(w.nom)}" /></div>`;
   }
   return `<div class="wine-thumb" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.5)}px">${COULEUR_EMOJI[w.couleur] || '🍾'}</div>`;
 }
 
 // ── Render cave ───────────────────────────────────────
 let sortMode = 'nom';
+
+// Échappe une valeur avant de l'insérer dans du HTML (innerHTML) : les
+// noms, domaines, notes, régions, cépages, accords, emplacements, etc.
+// viennent tous de saisies utilisateur ou d'un fichier restauré, jamais
+// de constantes du code — ne jamais les interpoler sans échappement.
+function escapeHtml(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 // Identité d'une référence de vin, mutualisée pour la détection de doublon,
 // la restauration depuis l'historique et le compteur "déjà bu" : nom et
@@ -1821,7 +1848,7 @@ function updateCepageFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les cépages</option>` +
-    cepages.map(c => `<option value="${c}">${c}</option>`).join('');
+    cepages.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
 
   // Conserve la sélection si elle est toujours valide, sinon revient à "tous"
   if (cepages.includes(previousValue)) {
@@ -1837,7 +1864,7 @@ function updateRegionFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Toutes les régions</option>` +
-    regions.map(r => `<option value="${r}">${r}</option>`).join('');
+    regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
 
   // Conserve la sélection si elle est toujours valide, sinon revient à "tous"
   if (regions.includes(previousValue)) {
@@ -1853,7 +1880,7 @@ function updatePaysFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les pays</option>` +
-    paysList.map(p => `<option value="${p}">${p}</option>`).join('');
+    paysList.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
 
   if (paysList.includes(previousValue)) {
     select.value = previousValue;
@@ -1870,7 +1897,7 @@ function updateAccordFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les accords</option>` +
-    accords.map(a => `<option value="${a}">${a}</option>`).join('');
+    accords.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
 
   if (accords.includes(previousValue)) {
     select.value = previousValue;
@@ -1911,16 +1938,16 @@ function renderCave() {
 
   list.innerHTML = filtered.map(w => {
     const statut = getStatut(w);
-    const sub = [w.domaine, w.millesime, w.cepage, w.region].filter(Boolean).join(' · ');
+    const sub = [w.domaine, w.millesime, w.cepage, w.region].filter(Boolean).map(escapeHtml).join(' · ');
     const dejaBu = getDejaBuCount(w);
     return `
       <div class="wine-card" data-id="${w.id}">
         ${photoOrEmoji(w)}
         <div class="wine-info">
-          <div class="wine-name">${w.nom}</div>
+          <div class="wine-name">${escapeHtml(w.nom)}</div>
           <div class="wine-sub">${sub || '—'}</div>
-          ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${w.accord_mets}</div>` : ''}
-          ${w.emplacement ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">📍 ${w.emplacement}</div>` : ''}
+          ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${escapeHtml(w.accord_mets)}</div>` : ''}
+          ${w.emplacement ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">📍 ${escapeHtml(w.emplacement)}</div>` : ''}
           ${dejaBu > 0 ? `<div class="wine-sub" style="font-size:11px;color:var(--gold);margin-top:2px">↻ déjà bu ${dejaBu}×</div>` : ''}
         </div>
         <div class="wine-right">
@@ -1989,21 +2016,21 @@ function updateStatsFilterOptions() {
   const cepages = [...allCepages].sort((a,b) => a.localeCompare(b));
   const prevCepage = cepageSelect.value;
   cepageSelect.innerHTML = `<option value="tous">Tous les cépages</option>` +
-    cepages.map(c => `<option value="${c}">${c}</option>`).join('');
+    cepages.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
   if (cepages.includes(prevCepage)) { cepageSelect.value = prevCepage; } else { statsCepageFilter = 'tous'; }
 
   const regionSelect = document.getElementById('statsRegionFilterSelect');
   const regionsAvail = [...new Set(wines.map(w => w.region).filter(Boolean))].sort((a,b) => a.localeCompare(b));
   const prevRegion = regionSelect.value;
   regionSelect.innerHTML = `<option value="tous">Toutes les régions</option>` +
-    regionsAvail.map(r => `<option value="${r}">${r}</option>`).join('');
+    regionsAvail.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
   if (regionsAvail.includes(prevRegion)) { regionSelect.value = prevRegion; } else { statsRegionFilter = 'tous'; }
 
   const paysSelect = document.getElementById('statsPaysFilterSelect');
   const paysAvail = [...new Set(wines.map(w => w.pays).filter(Boolean))].sort((a,b) => a.localeCompare(b));
   const prevPays = paysSelect.value;
   paysSelect.innerHTML = `<option value="tous">Tous les pays</option>` +
-    paysAvail.map(p => `<option value="${p}">${p}</option>`).join('');
+    paysAvail.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
   if (paysAvail.includes(prevPays)) { paysSelect.value = prevPays; } else { statsPaysFilter = 'tous'; }
 
   const accordSelect = document.getElementById('statsAccordFilterSelect');
@@ -2012,7 +2039,7 @@ function updateStatsFilterOptions() {
   const accordsAvail = [...allAccords].sort((a,b) => a.localeCompare(b));
   const prevAccord = accordSelect.value;
   accordSelect.innerHTML = `<option value="tous">Tous les accords</option>` +
-    accordsAvail.map(a => `<option value="${a}">${a}</option>`).join('');
+    accordsAvail.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
   if (accordsAvail.includes(prevAccord)) { accordSelect.value = prevAccord; } else { statsAccordFilter = 'tous'; }
 }
 
@@ -2061,14 +2088,14 @@ function renderStats() {
 
   const colorBars = Object.entries(couleurCounts).map(([c, n]) => `
     <div class="color-bar-row">
-      <div class="color-bar-label">${COULEUR_EMOJI[c] || '🍾'} ${c}</div>
+      <div class="color-bar-label">${COULEUR_EMOJI[c] || '🍾'} ${escapeHtml(c)}</div>
       <div class="color-bar-track"><div class="color-bar-fill ${COULEUR_CLASS[c] || ''}" style="width:${Math.round(n/maxCouleur*100)}%"></div></div>
       <div class="color-bar-count">${n}</div>
     </div>`).join('');
 
   const regionRows = regions.map(([r, n]) => `
     <div class="region-row">
-      <span class="region-name">${r}</span>
+      <span class="region-name">${escapeHtml(r)}</span>
       <span class="region-count">${n} btl</span>
     </div>`).join('');
 
@@ -2082,7 +2109,7 @@ function renderStats() {
 
   const cepageRows = cepages.map(([c, n]) => `
     <div class="region-row">
-      <span class="region-name">${c}</span>
+      <span class="region-name">${escapeHtml(c)}</span>
       <span class="region-count">${n} btl</span>
     </div>`).join('');
 
@@ -2096,7 +2123,7 @@ function renderStats() {
 
   const accordRows = accords.map(([a, n]) => `
     <div class="region-row">
-      <span class="region-name">${a}</span>
+      <span class="region-name">${escapeHtml(a)}</span>
       <span class="region-count">${n} btl</span>
     </div>`).join('');
 
@@ -2206,7 +2233,7 @@ function updateABoireCepageFilterOptions(prêts) {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les cépages</option>` +
-    cepages.map(c => `<option value="${c}">${c}</option>`).join('');
+    cepages.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
 
   if (cepages.includes(previousValue)) {
     select.value = previousValue;
@@ -2221,7 +2248,7 @@ function updateABoireRegionFilterOptions(prêts) {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Toutes les régions</option>` +
-    regions.map(r => `<option value="${r}">${r}</option>`).join('');
+    regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
 
   if (regions.includes(previousValue)) {
     select.value = previousValue;
@@ -2236,7 +2263,7 @@ function updateABoirePaysFilterOptions(prêts) {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les pays</option>` +
-    paysList.map(p => `<option value="${p}">${p}</option>`).join('');
+    paysList.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
 
   if (paysList.includes(previousValue)) {
     select.value = previousValue;
@@ -2253,7 +2280,7 @@ function updateABoireAccordFilterOptions(prêts) {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les accords</option>` +
-    accords.map(a => `<option value="${a}">${a}</option>`).join('');
+    accords.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
 
   if (accords.includes(previousValue)) {
     select.value = previousValue;
@@ -2331,15 +2358,15 @@ function renderABoire() {
   }
   list.innerHTML = filtered.map(w => {
     const statut = getStatut(w);
-    const sub = [w.domaine, w.millesime, w.cepage, w.region].filter(Boolean).join(' · ');
+    const sub = [w.domaine, w.millesime, w.cepage, w.region].filter(Boolean).map(escapeHtml).join(' · ');
     const fin = w.boire_avant ? (statut === 'passe' ? `dépassé depuis ${w.boire_avant}` : `jusqu'en ${w.boire_avant}`) : '';
     return `
       <div class="wine-card" data-id="${w.id}">
         ${photoOrEmoji(w)}
         <div class="wine-info">
-          <div class="wine-name">${w.nom}</div>
+          <div class="wine-name">${escapeHtml(w.nom)}</div>
           <div class="wine-sub">${sub || '—'}</div>
-          ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${w.accord_mets}</div>` : ''}
+          ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${escapeHtml(w.accord_mets)}</div>` : ''}
           ${fin ? `<div class="wine-sub" style="color:var(--urgent);font-size:11px;margin-top:2px">${fin}</div>` : ''}
         </div>
         <div class="wine-right">
@@ -2458,7 +2485,7 @@ function updateHistoriqueCepageFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les cépages</option>` +
-    cepages.map(c => `<option value="${c}">${c}</option>`).join('');
+    cepages.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
 
   if (cepages.includes(previousValue)) {
     select.value = previousValue;
@@ -2473,7 +2500,7 @@ function updateHistoriqueRegionFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Toutes les régions</option>` +
-    regions.map(r => `<option value="${r}">${r}</option>`).join('');
+    regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
 
   if (regions.includes(previousValue)) {
     select.value = previousValue;
@@ -2488,7 +2515,7 @@ function updateHistoriquePaysFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les pays</option>` +
-    paysList.map(p => `<option value="${p}">${p}</option>`).join('');
+    paysList.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
 
   if (paysList.includes(previousValue)) {
     select.value = previousValue;
@@ -2505,7 +2532,7 @@ function updateHistoriqueAccordFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les accords</option>` +
-    accords.map(a => `<option value="${a}">${a}</option>`).join('');
+    accords.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
 
   if (accords.includes(previousValue)) {
     select.value = previousValue;
@@ -2574,7 +2601,7 @@ function updateJournalCepageFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les cépages</option>` +
-    cepages.map(c => `<option value="${c}">${c}</option>`).join('');
+    cepages.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
 
   if (cepages.includes(previousValue)) {
     select.value = previousValue;
@@ -2589,7 +2616,7 @@ function updateJournalRegionFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Toutes les régions</option>` +
-    regions.map(r => `<option value="${r}">${r}</option>`).join('');
+    regions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
 
   if (regions.includes(previousValue)) {
     select.value = previousValue;
@@ -2604,7 +2631,7 @@ function updateJournalPaysFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les pays</option>` +
-    paysList.map(p => `<option value="${p}">${p}</option>`).join('');
+    paysList.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
 
   if (paysList.includes(previousValue)) {
     select.value = previousValue;
@@ -2621,7 +2648,7 @@ function updateJournalAccordFilterOptions() {
   const previousValue = select.value;
 
   select.innerHTML = `<option value="tous">Tous les accords</option>` +
-    accords.map(a => `<option value="${a}">${a}</option>`).join('');
+    accords.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
 
   if (accords.includes(previousValue)) {
     select.value = previousValue;
@@ -2636,7 +2663,7 @@ async function loadArchive() {
   const { data, error } = await db.from('wines_archive').select('*').order('date_consommation', { ascending: false });
   if (error) {
     console.error('Erreur chargement wines_archive:', error);
-    list.innerHTML = `<div class="loading">❌ Erreur Supabase : ${error.message || error.hint || 'réponse inattendue'}</div>`;
+    list.innerHTML = `<div class="loading">❌ Erreur Supabase : ${escapeHtml(error.message || error.hint || 'réponse inattendue')}</div>`;
     return;
   }
   archive = data || [];
@@ -2699,20 +2726,20 @@ function renderHistoriqueStats() {
 
   const colorBars = Object.entries(couleurCounts).map(([c, n]) => `
     <div class="color-bar-row">
-      <div class="color-bar-label">${COULEUR_EMOJI[c] || '🍾'} ${c}</div>
+      <div class="color-bar-label">${COULEUR_EMOJI[c] || '🍾'} ${escapeHtml(c)}</div>
       <div class="color-bar-track"><div class="color-bar-fill ${COULEUR_CLASS[c] || ''}" style="width:${Math.round(n/maxCouleur*100)}%"></div></div>
       <div class="color-bar-count">${n}</div>
     </div>`).join('');
 
   const regionRows = regions.map(([r, n]) => `
     <div class="region-row">
-      <span class="region-name">${r}</span>
+      <span class="region-name">${escapeHtml(r)}</span>
       <span class="region-count">${n} btl</span>
     </div>`).join('');
 
   const cepageRows = cepages.map(([c, n]) => `
     <div class="region-row">
-      <span class="region-name">${c}</span>
+      <span class="region-name">${escapeHtml(c)}</span>
       <span class="region-count">${n} btl</span>
     </div>`).join('');
 
@@ -2726,7 +2753,7 @@ function renderHistoriqueStats() {
 
   const accordRows = accords.map(([a, n]) => `
     <div class="region-row">
-      <span class="region-name">${a}</span>
+      <span class="region-name">${escapeHtml(a)}</span>
       <span class="region-count">${n} btl</span>
     </div>`).join('');
 
@@ -2806,7 +2833,7 @@ function renderHistorique() {
   }
 
   list.innerHTML = filtered.map(w => {
-    const sub = [w.domaine, w.millesime, w.cepage, w.region].filter(Boolean).join(' · ');
+    const sub = [w.domaine, w.millesime, w.cepage, w.region].filter(Boolean).map(escapeHtml).join(' · ');
     const date = w.date_consommation
       ? new Date(w.date_consommation).toLocaleDateString('fr-CH', { day: 'numeric', month: 'short', year: 'numeric' })
       : '';
@@ -2814,12 +2841,12 @@ function renderHistorique() {
       <div class="wine-card archive-card" data-id="${w.id}">
         ${photoOrEmoji(w)}
         <div class="wine-info">
-          <div class="wine-name">${w.nom}</div>
+          <div class="wine-name">${escapeHtml(w.nom)}</div>
           <div class="wine-sub">${sub || '—'}</div>
-          ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${w.accord_mets}</div>` : ''}
+          ${w.accord_mets ? `<div class="wine-sub" style="font-size:11px;margin-top:2px">🍽️ ${escapeHtml(w.accord_mets)}</div>` : ''}
           ${starsHtml(w.note_sur_5)}
           ${w.a_racheter ? `<div class="wine-sub" style="font-size:11px;color:var(--gold);margin-top:2px">🛒 À racheter</div>` : ''}
-          ${w.note_degustation ? `<div class="wine-sub" style="font-style:italic;margin-top:2px">💬 ${w.note_degustation}</div>` : ''}
+          ${w.note_degustation ? `<div class="wine-sub" style="font-style:italic;margin-top:2px">💬 ${escapeHtml(w.note_degustation)}</div>` : ''}
         </div>
         <div class="wine-right">
           <div class="wine-sub" style="font-weight:600">${date}</div>
@@ -2873,13 +2900,13 @@ function openDetail(id) {
 
   document.getElementById('detailContent').innerHTML = `
     <div class="detail-header">
-      ${w.photo_url
-        ? `<div class="detail-photo clickable" id="detailPhotoZoom"><img src="${w.photo_url}" /></div>`
+      ${safeImageUrl(w.photo_url)
+        ? `<div class="detail-photo clickable" id="detailPhotoZoom"><img src="${escapeHtml(safeImageUrl(w.photo_url))}" /></div>`
         : `<div class="detail-photo">${COULEUR_EMOJI[w.couleur] || '🍾'}</div>`
       }
       <div>
-        <div class="detail-title">${w.nom}</div>
-        <div class="detail-sub">${[w.domaine, w.region, w.pays].filter(Boolean).join(' · ')}</div>
+        <div class="detail-title">${escapeHtml(w.nom)}</div>
+        <div class="detail-sub">${[w.domaine, w.region, w.pays].filter(Boolean).map(escapeHtml).join(' · ')}</div>
         <div style="margin-top:8px">${statutBadge(statut)}</div>
       </div>
     </div>
@@ -2890,11 +2917,11 @@ function openDetail(id) {
       </div>
       <div class="detail-item">
         <div class="detail-item-label">Couleur</div>
-        <div class="detail-item-value" style="text-transform:capitalize">${COULEUR_EMOJI[w.couleur] || ''} ${w.couleur}</div>
+        <div class="detail-item-value" style="text-transform:capitalize">${COULEUR_EMOJI[w.couleur] || ''} ${escapeHtml(w.couleur)}</div>
       </div>
       <div class="detail-item">
         <div class="detail-item-label">Cépage</div>
-        <div class="detail-item-value">${w.cepage || '—'}</div>
+        <div class="detail-item-value">${escapeHtml(w.cepage) || '—'}</div>
       </div>
       <div class="detail-item">
         <div class="detail-item-label">Quantité</div>
@@ -2911,20 +2938,20 @@ function openDetail(id) {
       ${w.accord_mets ? `
       <div class="detail-item" style="grid-column:1/-1">
         <div class="detail-item-label">À boire avec</div>
-        <div class="detail-item-value">🍽️ ${w.accord_mets}</div>
+        <div class="detail-item-value">🍽️ ${escapeHtml(w.accord_mets)}</div>
       </div>` : ''}
       ${w.emplacement ? `
       <div class="detail-item" style="grid-column:1/-1">
         <div class="detail-item-label">Emplacement</div>
-        <div class="detail-item-value">📍 ${w.emplacement}</div>
+        <div class="detail-item-value">📍 ${escapeHtml(w.emplacement)}</div>
       </div>` : ''}
       ${(w.date_achat || w.caviste) ? `
       <div class="detail-item" style="grid-column:1/-1">
         <div class="detail-item-label">Achat</div>
-        <div class="detail-item-value">${[w.date_achat ? new Date(w.date_achat).toLocaleDateString('fr-CH') : '', w.caviste].filter(Boolean).join(' · ')}</div>
+        <div class="detail-item-value">${[w.date_achat ? new Date(w.date_achat).toLocaleDateString('fr-CH') : '', escapeHtml(w.caviste)].filter(Boolean).join(' · ')}</div>
       </div>` : ''}
     </div>
-    ${w.notes ? `<div class="detail-notes">💬 ${w.notes}</div>` : ''}
+    ${w.notes ? `<div class="detail-notes">💬 ${escapeHtml(w.notes)}</div>` : ''}
     <div class="detail-actions">
       <button class="btn-consume" id="btnConsume">−1 bue</button>
       <button class="btn-edit" id="btnDetailEdit">Modifier</button>
@@ -2972,13 +2999,13 @@ function openArchiveDetail(id) {
 
   document.getElementById('detailContent').innerHTML = `
     <div class="detail-header">
-      ${w.photo_url
-        ? `<div class="detail-photo clickable" id="detailPhotoZoom"><img src="${w.photo_url}" /></div>`
+      ${safeImageUrl(w.photo_url)
+        ? `<div class="detail-photo clickable" id="detailPhotoZoom"><img src="${escapeHtml(safeImageUrl(w.photo_url))}" /></div>`
         : `<div class="detail-photo">${COULEUR_EMOJI[w.couleur] || '🍾'}</div>`
       }
       <div>
-        <div class="detail-title">${w.nom}</div>
-        <div class="detail-sub">${[w.domaine, w.region, w.pays].filter(Boolean).join(' · ')}</div>
+        <div class="detail-title">${escapeHtml(w.nom)}</div>
+        <div class="detail-sub">${[w.domaine, w.region, w.pays].filter(Boolean).map(escapeHtml).join(' · ')}</div>
         ${starsHtml(w.note_sur_5) ? `<div style="margin-top:8px">${starsHtml(w.note_sur_5)}</div>` : ''}
       </div>
     </div>
@@ -2989,11 +3016,11 @@ function openArchiveDetail(id) {
       </div>
       <div class="detail-item">
         <div class="detail-item-label">Couleur</div>
-        <div class="detail-item-value" style="text-transform:capitalize">${COULEUR_EMOJI[w.couleur] || ''} ${w.couleur || '—'}</div>
+        <div class="detail-item-value" style="text-transform:capitalize">${COULEUR_EMOJI[w.couleur] || ''} ${escapeHtml(w.couleur) || '—'}</div>
       </div>
       <div class="detail-item">
         <div class="detail-item-label">Cépage</div>
-        <div class="detail-item-value">${w.cepage || '—'}</div>
+        <div class="detail-item-value">${escapeHtml(w.cepage) || '—'}</div>
       </div>
       <div class="detail-item">
         <div class="detail-item-label">Quantité bue</div>
@@ -3014,11 +3041,11 @@ function openArchiveDetail(id) {
       ${w.accord_mets ? `
       <div class="detail-item" style="grid-column:1/-1">
         <div class="detail-item-label">À boire avec</div>
-        <div class="detail-item-value">🍽️ ${w.accord_mets}</div>
+        <div class="detail-item-value">🍽️ ${escapeHtml(w.accord_mets)}</div>
       </div>` : ''}
     </div>
-    ${w.notes ? `<div class="detail-notes">📝 Notes d'origine : ${w.notes}</div>` : ''}
-    ${w.note_degustation ? `<div class="detail-notes">💬 ${w.note_degustation}</div>` : ''}
+    ${w.notes ? `<div class="detail-notes">📝 Notes d'origine : ${escapeHtml(w.notes)}</div>` : ''}
+    ${w.note_degustation ? `<div class="detail-notes">💬 ${escapeHtml(w.note_degustation)}</div>` : ''}
     <div class="detail-actions">
       <button class="btn-edit" id="btnToggleRacheter">${w.a_racheter ? '🛒 Retirer de "à racheter"' : '🛒 Marquer à racheter'}</button>
       <button class="btn-edit" id="btnEditArchiveNote">✏️ Modifier la note</button>
@@ -3651,19 +3678,19 @@ function openDuplicateModal(existing, newPayload) {
     <div class="dup-col">
       <div class="detail-item-label">${w === existing ? 'DÉJÀ EN CAVE' : 'NOUVELLE SAISIE'}</div>
       <div class="dup-row"><span>Millésime</span><b>${w.millesime || '—'}</b></div>
-      <div class="dup-row"><span>Région</span><b>${w.region || '—'}</b></div>
-      <div class="dup-row"><span>Cépage</span><b>${w.cepage || '—'}</b></div>
-      <div class="dup-row"><span>À boire avec</span><b>${w.accord_mets || '—'}</b></div>
-      <div class="dup-row"><span>Couleur</span><b>${w.couleur || '—'}</b></div>
+      <div class="dup-row"><span>Région</span><b>${escapeHtml(w.region) || '—'}</b></div>
+      <div class="dup-row"><span>Cépage</span><b>${escapeHtml(w.cepage) || '—'}</b></div>
+      <div class="dup-row"><span>À boire avec</span><b>${escapeHtml(w.accord_mets) || '—'}</b></div>
+      <div class="dup-row"><span>Couleur</span><b>${escapeHtml(w.couleur) || '—'}</b></div>
       <div class="dup-row"><span>Quantité</span><b>${w.quantite}</b></div>
       <div class="dup-row"><span>Prix</span><b>${w.prix_achat ? w.prix_achat + ' CHF' : '—'}</b></div>
-      <div class="dup-row"><span>Emplacement</span><b>${w.emplacement || '—'}</b></div>
+      <div class="dup-row"><span>Emplacement</span><b>${escapeHtml(w.emplacement) || '—'}</b></div>
       <div class="dup-row"><span>Date d'achat</span><b>${w.date_achat ? new Date(w.date_achat).toLocaleDateString('fr-CH') : '—'}</b></div>
-      <div class="dup-row"><span>Caviste</span><b>${w.caviste || '—'}</b></div>
+      <div class="dup-row"><span>Caviste</span><b>${escapeHtml(w.caviste) || '—'}</b></div>
     </div>`;
 
   document.getElementById('duplicateContent').innerHTML = `
-    <p class="dup-intro">Un vin "<b>${existing.nom}</b>" est déjà dans votre cave. Est-ce le même ?</p>
+    <p class="dup-intro">Un vin "<b>${escapeHtml(existing.nom)}</b>" est déjà dans votre cave. Est-ce le même ?</p>
     <div class="dup-compare">
       ${fmt(existing)}
       ${fmt(newPayload)}
