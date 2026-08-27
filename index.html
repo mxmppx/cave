@@ -3706,7 +3706,7 @@ function openDuplicateModal(existing, newPayload) {
 // Champs qu'on complète sur la fiche existante avec la nouvelle saisie,
 // uniquement s'ils sont vides — jamais d'écrasement d'une valeur déjà saisie
 const DUP_MERGE_FILLABLE_FIELDS = [
-  'region', 'cepage', 'accord_mets', 'prix_achat', 'boire_a_partir_de',
+  'region', 'pays', 'cepage', 'accord_mets', 'prix_achat', 'boire_a_partir_de',
   'boire_avant', 'emplacement', 'date_achat', 'caviste', 'notes',
 ];
 
@@ -3724,6 +3724,23 @@ document.getElementById('btnDupMerge').addEventListener('click', async e => {
 
   const btn = e.currentTarget;
   btn.disabled = true;
+
+  // La photo de la nouvelle saisie n'est uploadée qu'ici : elle n'a pas
+  // encore été envoyée à ce stade (doSaveWine(), qui gère l'upload
+  // habituellement, n'est jamais appelé sur le chemin fusion).
+  if (!existing.photo_url && uploadedPhotoFile) {
+    const ext = uploadedPhotoFile.name.split('.').pop();
+    const path = `${Date.now()}.${ext}`;
+    const { error: upErr } = await db.storage.from('wine-labels').upload(path, uploadedPhotoFile, { upsert: true });
+    if (upErr) {
+      console.error('Erreur upload photo (fusion doublon):', upErr);
+      showToast('La fusion continue, mais l\'upload de la nouvelle photo a échoué');
+    } else {
+      const { data: urlData } = db.storage.from('wine-labels').getPublicUrl(path);
+      update.photo_url = urlData.publicUrl;
+    }
+  }
+
   const { error } = await db.from('wines').update(update).eq('id', existing.id);
   btn.disabled = false;
 
