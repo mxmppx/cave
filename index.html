@@ -3051,6 +3051,16 @@ function openArchiveDetail(id) {
         <div class="detail-item-label">À boire avec</div>
         <div class="detail-item-value">🍽️ ${escapeHtml(w.accord_mets)}</div>
       </div>` : ''}
+      ${w.emplacement ? `
+      <div class="detail-item" style="grid-column:1/-1">
+        <div class="detail-item-label">Emplacement</div>
+        <div class="detail-item-value">📍 ${escapeHtml(w.emplacement)}</div>
+      </div>` : ''}
+      ${(w.date_achat || w.caviste) ? `
+      <div class="detail-item" style="grid-column:1/-1">
+        <div class="detail-item-label">Achat</div>
+        <div class="detail-item-value">${[w.date_achat ? new Date(w.date_achat).toLocaleDateString('fr-CH') : '', escapeHtml(w.caviste)].filter(Boolean).join(' · ')}</div>
+      </div>` : ''}
     </div>
     ${w.notes ? `<div class="detail-notes">📝 Notes d'origine : ${escapeHtml(w.notes)}</div>` : ''}
     ${w.note_degustation ? `<div class="detail-notes">💬 ${escapeHtml(w.note_degustation)}</div>` : ''}
